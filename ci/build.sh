@@ -21,7 +21,11 @@ set -euo pipefail
 HERE=$(cd "$(dirname "$0")/.." && pwd)
 ROOT=${ROOT:-/armtix}
 OUT=${OUT:-$HERE/out}
-IMAGES=https://armtix.artixlinux.org/images
+# ⚠ armtix.artixlinux.org is behind Cloudflare, which answers GitHub's runners
+#   with 403. armtixlinux.org serves the same images from plain nginx. Same for
+#   the package mirrors below.
+IMAGE_MIRRORS=(https://armtixlinux.org/images https://armtix.artixlinux.org/images)
+PKG_MIRRORS=('https://repo.armtixlinux.org/$repo/os/$arch' 'https://armtix.artixlinux.org/repos/$repo/os/$arch')
 REPO=omarchy-artix
 OMARCHY_PKGS=https://github.com/omacom/omarchy-pkgs.git
 
@@ -37,10 +41,13 @@ asbuilder() { chroot "$ROOT" /usr/bin/env -i PATH=/usr/bin HOME=/home/builder LA
 # ── 1. the build root ──────────────────────────────────────────────────────
 echo "::group::Armtix root"
 if [[ ! -x $ROOT/usr/bin/pacman ]]; then
-  line=$(curl -fsSL "$IMAGES/sha256sums" | grep -E ' armtix-dinit-[0-9]+\.tar\.xz$' | sort -k2 | tail -1)
+  for IMAGES in "${IMAGE_MIRRORS[@]}"; do
+    line=$(curl -fsSL "$IMAGES/sha256sums" | grep -E ' armtix-dinit-[0-9]+\.tar\.xz$' | sort -k2 | tail -1) && break
+  done
+  [[ -n ${line:-} ]] || { echo "no Armtix image mirror answered" >&2; exit 1; }
   img=${line##* }
-  echo "image: $img"
-  curl -fsSL -o "/tmp/$img" "$IMAGES/$img"
+  echo "image: $IMAGES/$img"
+  curl -fsSL --retry 3 -o "/tmp/$img" "$IMAGES/$img"
   (cd /tmp && sha256sum -c - <<<"$line")
   mkdir -p "$ROOT"
   tar -xpf "/tmp/$img" -C "$ROOT" --numeric-owner
@@ -56,6 +63,7 @@ mountpoint -q "$ROOT/proc" || mount -t proc proc "$ROOT/proc"
 rm -f "$ROOT/etc/resolv.conf"
 cp -L /run/systemd/resolve/resolv.conf "$ROOT/etc/resolv.conf" 2>/dev/null || cp -L /etc/resolv.conf "$ROOT/etc/resolv.conf"
 
+printf 'Server = %s\n' "${PKG_MIRRORS[@]}" >"$ROOT/etc/pacman.d/mirrorlist"
 inroot pacman-key --init >/dev/null
 inroot pacman-key --populate >/dev/null 2>&1 || true
 inroot pacman -Syu --noconfirm --needed base-devel git sudo
