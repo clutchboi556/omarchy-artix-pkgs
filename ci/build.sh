@@ -198,7 +198,7 @@ if (( ${#new[@]} || ${#gone[@]} )); then
   (( ${#gone[@]} )) && inroot repo-remove --quiet "/repo/$REPO.db.tar.gz" "${gone[@]}"
   # Release assets cannot be symlinks; publish the names pacman asks for as copies.
   for k in db files; do cp -L "$ROOT/repo/$REPO.$k.tar.gz" "$ROOT/repo/$REPO.$k.tmp"; rm -f "$ROOT/repo/$REPO.$k"; mv "$ROOT/repo/$REPO.$k.tmp" "$ROOT/repo/$REPO.$k"; done
-  cp "$ROOT/repo"/* "$OUT/publish/"
+  find "$ROOT/repo" -maxdepth 1 -type f ! -name "*.old" -exec cp -t "$OUT/publish/" {} +
 fi
 rm -rf "$GNUPGHOME"
 
