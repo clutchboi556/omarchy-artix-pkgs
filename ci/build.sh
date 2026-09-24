@@ -150,10 +150,11 @@ for name in "${built[@]}"; do
     f=$ROOT$f
     [[ -f $f ]] || continue
     [[ $f == *-debug-* ]] && continue
-    b=$(basename "$f")
-    # GitHub rewrites ':' in asset names, which would break every download of
-    # an epoch'd package. Refuse loudly rather than publish a dead link.
-    [[ $b == *:* ]] && { echo "::error::$b has an epoch; GitHub assets cannot carry ':'"; echo "$name" >>"$OUT/failed"; continue; }
+    # GitHub rewrites ':' in asset names, so an epoch'd package (asdcontrol is
+    # 1:0.6.0) would be listed under a name that 404s. The name is only a
+    # locator -- pacman and repo-add read the version from .PKGINFO -- so
+    # publish it with '_' and let repo-add record that name.
+    b=$(basename "$f"); b=${b//:/_}
     cp "$f" "$ROOT/repo/$b"
     [[ -z ${signer:-} ]] || gpg --batch --yes --detach-sign --local-user "$signer" --output "$ROOT/repo/$b.sig" "$ROOT/repo/$b"
     new+=("/repo/$b")
