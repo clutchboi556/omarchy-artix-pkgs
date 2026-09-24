@@ -155,10 +155,10 @@ for name in "${built[@]}"; do
     # an epoch'd package. Refuse loudly rather than publish a dead link.
     [[ $b == *:* ]] && { echo "::error::$b has an epoch; GitHub assets cannot carry ':'"; echo "$name" >>"$OUT/failed"; continue; }
     cp "$f" "$ROOT/repo/$b"
-    [[ -n ${signer:-} ]] && gpg --batch --yes --detach-sign --local-user "$signer" --output "$ROOT/repo/$b.sig" "$ROOT/repo/$b"
+    [[ -z ${signer:-} ]] || gpg --batch --yes --detach-sign --local-user "$signer" --output "$ROOT/repo/$b.sig" "$ROOT/repo/$b"
     new+=("/repo/$b")
     old=${PUBFILE[$(tar -xOf "$f" .PKGINFO | sed -n 's/^pkgname = //p')]:-}
-    [[ -n $old && $old != "$b" ]] && printf '%s\n%s.sig\n' "$old" "$old" >>"$OUT/stale"
+    if [[ -n $old && $old != "$b" ]]; then printf '%s\n%s.sig\n' "$old" "$old" >>"$OUT/stale"; fi
   done
 done
 
