@@ -1,0 +1,50 @@
+name: build aarch64
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '23 7 * * *'   # daily: pick up new omarchy-pkgs versions
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Rebuild everything, even versions already published
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-aarch64
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 240
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ensure the release exists
+        run: |
+          gh release view aarch64 >/dev/null 2>&1 || gh release create aarch64 \
+            --title "aarch64 packages" --latest=false \
+            --notes "pacman repo for omarchy-artix on aarch64. Server = https://github.com/${{ github.repository }}/releases/download/aarch64"
+
+      - name: Fetch the published db
+        run: |
+          mkdir -p out/current
+          gh release download aarch64 -D out/current \
+            -p 'omarchy-artix.db.tar.gz' -p 'omarchy-artix.files.tar.gz' || true
+
+      - name: Build
+        env:
+          PKG_SIGNING_KEY: ${{ secrets.PKG_SIGNING_KEY }}
+          FORCE: ${{ inputs.force || 'false' }}
+        run: sudo --preserve-env=PKG_SIGNING_KEY,FORCE ci/build.sh
+
+      - name: Publish
+        run: sudo chown -R "$USER" out && ci/publish.sh
