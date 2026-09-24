@@ -1,11 +1,15 @@
 # Packages built for aarch64 against Armtix and published as a pacman repo.
 #
-#   omarchy NAME          pkgbuilds/NAME from omacom/omarchy-pkgs (branch master,
-#                         latest at build time -- omarchy's own recipes, which
-#                         already declare aarch64; they just never build it)
-#   aur NAME COMMIT       an AUR package pinned to one commit of its git repo.
-#                         Pinned because AUR recipes are user-submitted and move;
-#                         bump the commit deliberately, after reading the diff.
+#   omarchy NAME   pkgbuilds/NAME from omacom/omarchy-pkgs (branch master, latest
+#                  at build time -- omarchy's own recipes, which already declare
+#                  aarch64; omarchy just never publishes the aarch64 builds)
+#   local NAME     pkgbuilds/NAME in this repo, for the rare recipe omarchy's
+#                  cannot be built from here (see the recipe's header for why)
+#
+# No AUR. Every recipe is omarchy's or ours, reviewed in this repo.
+#
+# ORDER IS BUILD ORDER: a recipe whose dependencies are built here must come
+# after them (pinta after dotnet-core-bin).
 #
 # Only what the ARM boxes cannot get elsewhere: not in Armtix, not in omarchy's
 # aarch64 repo, not an arch-independent package from its x86_64 repo.
@@ -15,3 +19,9 @@ omarchy omasnap
 omarchy omacalc
 omarchy omacut
 omarchy omawrite
+omarchy cliamp
+omarchy herdr
+omarchy hyprland-preview-share-picker
+omarchy dotnet-core-bin
+omarchy pinta
+local   localsend

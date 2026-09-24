@@ -3,12 +3,14 @@
 aarch64 builds, against [Armtix](https://armtix.artixlinux.org), of the packages
 [omarchy-artix](https://github.com/clutchboi556/omarchy-artix) boxes need but
 cannot get anywhere else: Omarchy's own apps that its package repo only ships
-for x86_64 (omasnap, omacalc, omacut, omawrite, tzupdate, asdcontrol), and
-pinned AUR packages.
+for x86_64: omasnap, omacalc, omacut, omawrite, tzupdate, asdcontrol, cliamp,
+herdr, hyprland-preview-share-picker, pinta (with the .NET runtime it needs)
+and localsend.
 
-Nothing here is a fork. `omarchy` entries build Omarchy's own recipes from
+No AUR. `omarchy` entries build Omarchy's own recipes from
 [omacom/omarchy-pkgs](https://github.com/omacom/omarchy-pkgs), which already
-declare `aarch64`; `aur` entries build one pinned AUR commit. See `packages.txt`.
+declare `aarch64`; `local` entries are recipes in `pkgbuilds/` here, used only
+where omarchy's cannot be built (localsend: see its header). See `packages.txt`.
 
 ## How it works
 

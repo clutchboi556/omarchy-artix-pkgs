@@ -1,0 +1,51 @@
+# omarchy-artix-pkgs: LocalSend for aarch64 from upstream's own arm64 release.
+#
+# WHY NOT omarchy's recipe: it builds from source through fvm (a Flutter version
+# manager omarchy does not package, pulled from the AUR) and a Flutter SDK
+# downloaded mid-build. Upstream publishes signed-off arm64 Linux builds of the
+# same release, so package those instead. Layout matches omarchy's package
+# (/usr/lib/localsend, /usr/bin/localsend{,-cli}) so nothing else can tell.
+# Not included: omarchy's `server` helper, which upstream does not publish.
+
+pkgname=localsend
+pkgver=1.18.2
+pkgrel=1
+pkgdesc="An open source cross-platform alternative to AirDrop"
+arch=('aarch64')
+url="https://github.com/localsend/localsend"
+license=('Apache-2.0')
+depends=('gtk3' 'libayatana-appindicator' 'hicolor-icon-theme')
+options=('!strip' '!debug')
+source=("LocalSend-$pkgver-linux-arm-64.tar.gz::$url/releases/download/v$pkgver/LocalSend-$pkgver-linux-arm-64.tar.gz"
+        "LocalSend-CLI-$pkgver-linux-arm-64.tar.gz::$url/releases/download/v$pkgver/LocalSend-CLI-$pkgver-linux-arm-64.tar.gz"
+        "LICENSE-$pkgver::https://raw.githubusercontent.com/localsend/localsend/v$pkgver/LICENSE")
+noextract=("LocalSend-$pkgver-linux-arm-64.tar.gz")
+sha256sums=('dd61f74f1ce3f4e25aca41cd3ce650d6a99353d7baba81a8139807275b88e606'
+            'b003e9837743470f7a423ca1205e664031ce3d2e865acc692f3e47577ea93f6d'
+            'SKIP')
+
+package() {
+  local dest="$pkgdir/usr/lib/$pkgname"
+  install -dm755 "$dest"
+  bsdtar -xf "$srcdir/LocalSend-$pkgver-linux-arm-64.tar.gz" -C "$dest"
+  install -Dm755 "$srcdir/localsend-cli" "$dest/localsend-cli"
+
+  install -dm755 "$pkgdir/usr/bin"
+  ln -s "/usr/lib/$pkgname/localsend_app" "$pkgdir/usr/bin/$pkgname"
+  ln -s "/usr/lib/$pkgname/localsend-cli" "$pkgdir/usr/bin/$pkgname-cli"
+
+  install -Dm644 "$dest/data/flutter_assets/assets/img/logo-512.png" \
+    "$pkgdir/usr/share/icons/hicolor/512x512/apps/$pkgname.png"
+  install -Dm644 /dev/stdin "$pkgdir/usr/share/applications/$pkgname.desktop" <<END
+[Desktop Entry]
+Type=Application
+Name=LocalSend
+Comment=$pkgdesc
+Exec=$pkgname
+Icon=$pkgname
+Terminal=false
+Categories=Utility;Network;
+END
+  install -Dm644 "$srcdir/LICENSE-$pkgver" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  chmod -R u+rwX,go+rX,go-w "$pkgdir/"
+}

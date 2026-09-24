@@ -28,6 +28,7 @@ IMAGE_MIRRORS=(https://armtixlinux.org/images https://armtix.artixlinux.org/imag
 PKG_MIRRORS=('https://repo.armtixlinux.org/$repo/os/$arch' 'https://armtix.artixlinux.org/repos/$repo/os/$arch')
 REPO=omarchy-artix
 OMARCHY_PKGS=https://github.com/omacom/omarchy-pkgs.git
+PUBLISHED=https://github.com/${GITHUB_REPOSITORY:-clutchboi556/omarchy-artix-pkgs}/releases/download/aarch64
 
 [[ $(uname -m) == aarch64 ]] || { echo "build.sh: needs an aarch64 host" >&2; exit 1; }
 (( EUID == 0 )) || { echo "build.sh: run as root" >&2; exit 1; }
@@ -97,15 +98,12 @@ mkdir -p "$ROOT/home/builder/build"
 git clone -q --depth 1 --branch master "$OMARCHY_PKGS" /tmp/omarchy-pkgs
 echo "omarchy-pkgs at $(git -C /tmp/omarchy-pkgs rev-parse --short HEAD)"
 wanted=()
-while read -r src name ref; do
+while read -r src name; do
   [[ -z $src || $src == \#* ]] && continue
   dst=$ROOT/home/builder/build/$name
   case $src in
     omarchy) cp -a "/tmp/omarchy-pkgs/pkgbuilds/$name" "$dst" ;;
-    aur)
-      [[ -n $ref ]] || { echo "aur $name: no pinned commit" >&2; echo "$name" >>"$OUT/failed"; continue; }
-      git clone -q "https://aur.archlinux.org/$name.git" "$dst"
-      git -C "$dst" -c advice.detachedHead=false checkout -q "$ref" ;;
+    local)   cp -a "$HERE/pkgbuilds/$name" "$dst" ;;
     *) echo "unknown source '$src' for $name" >&2; echo "$name" >>"$OUT/failed"; continue ;;
   esac
   wanted+=("$name")
@@ -113,19 +111,44 @@ done <"$HERE/packages.txt"
 inroot chown -R builder:builder /home/builder/build
 echo "::endgroup::"
 
+# Dependencies that are themselves ours (pinta needs dotnet-core-bin's split
+# packages) must be installable by `makepkg -s`, which only resolves from sync
+# repos. Two repos inside the build root, never on a box: [localbuild] holds
+# what this run built (so order in packages.txt is build order), and the
+# published release holds everything built before.
+mkdir -p "$ROOT/localrepo"
+tar -czf "$ROOT/localrepo/localbuild.db.tar.gz" -T /dev/null
+ln -sf localbuild.db.tar.gz "$ROOT/localrepo/localbuild.db"
+if ! grep -q '^\[localbuild\]' "$ROOT/etc/pacman.conf"; then
+  printf '\n[localbuild]\nSigLevel = Never\nServer = file:///localrepo\n' >>"$ROOT/etc/pacman.conf"
+  if [[ -s $OUT/current/$REPO.db.tar.gz ]]; then
+    printf '\n[%s]\nSigLevel = Never\nServer = %s\n' "$REPO" "$PUBLISHED" >>"$ROOT/etc/pacman.conf"
+  fi
+fi
+inroot pacman -Sy --noconfirm >/dev/null
+
 # ── 4. build what is new ───────────────────────────────────────────────────
 built=()
+wanted_pkgs=()   # every package name the recipes produce (split packages too)
 for name in "${wanted[@]}"; do
   srcinfo=$(asbuilder "cd ~/build/$name && makepkg --printsrcinfo")
   field() { sed -n "s/^\t$1 = //p" <<<"$srcinfo" | head -1; }
+  mapfile -t pkgs < <(sed -n 's/^pkgname = //p' <<<"$srcinfo")
+  wanted_pkgs+=("${pkgs[@]}")
+  # A split recipe (dotnet-core-bin) publishes under its package names, never
+  # its base name, so compare against the first of them.
   ver=$(field pkgver)-$(field pkgrel); ep=$(field epoch); [[ -n $ep ]] && ver=$ep:$ver
-  if [[ ${FORCE:-false} != true && ${PUBVER[$name]:-} == "$ver" ]]; then
+  if [[ ${FORCE:-false} != true && ${PUBVER[${pkgs[0]}]:-} == "$ver" ]]; then
     echo "$name $ver: already published"
     continue
   fi
-  echo "::group::$name ${PUBVER[$name]:-(new)} -> $ver"
+  echo "::group::$name ${PUBVER[${pkgs[0]}]:-(new)} -> $ver"
   if asbuilder "cd ~/build/$name && makepkg -s --noconfirm --cleanbuild --needed"; then
     built+=("$name")
+    mapfile -t made < <(asbuilder "cd ~/build/$name && makepkg --packagelist")
+    for f in "${made[@]}"; do [[ -f $ROOT$f ]] && cp "$ROOT$f" "$ROOT/localrepo/"; done
+    inroot bash -c 'cd /localrepo && repo-add -q localbuild.db.tar.gz *.pkg.tar.*' >/dev/null
+    inroot pacman -Sy --noconfirm >/dev/null
   else
     echo "::error::$name failed to build"
     echo "$name" >>"$OUT/failed"
@@ -166,7 +189,7 @@ done
 # Anything published but no longer listed in packages.txt leaves the index.
 gone=()
 for n in "${!PUBVER[@]}"; do
-  printf '%s\n' "${wanted[@]}" | grep -qx "$n" && continue
+  printf '%s\n' "${wanted_pkgs[@]}" | grep -qx "$n" && continue
   gone+=("$n"); printf '%s\n%s.sig\n' "${PUBFILE[$n]}" "${PUBFILE[$n]}" >>"$OUT/stale"
 done
 
