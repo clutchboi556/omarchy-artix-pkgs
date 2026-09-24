@@ -143,7 +143,13 @@ if [[ -n ${PKG_SIGNING_KEY:-} ]]; then
 fi
 new=()
 for name in "${built[@]}"; do
-  for f in "$ROOT/home/builder/build/$name"/*.pkg.tar.zst; do
+  # Ask makepkg where it put them: Armtix's makepkg.conf does not use the
+  # PKGEXT/PKGDEST an Arch-shaped glob assumes (it found nothing).
+  mapfile -t files < <(asbuilder "cd ~/build/$name && makepkg --packagelist")
+  for f in "${files[@]}"; do
+    f=$ROOT$f
+    [[ -f $f ]] || continue
+    [[ $f == *-debug-* ]] && continue
     b=$(basename "$f")
     # GitHub rewrites ':' in asset names, which would break every download of
     # an epoch'd package. Refuse loudly rather than publish a dead link.
