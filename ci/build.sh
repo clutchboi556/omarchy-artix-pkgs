@@ -56,6 +56,10 @@ if [[ ! -x $ROOT/usr/bin/pacman ]]; then
     sub=$ROOT/$(ls "$ROOT"); mv "$sub"/* "$sub"/.[!.]* "$ROOT"/ 2>/dev/null || true; rmdir "$sub"
   fi
 fi
+# The root must be a mount point itself: pacman's CheckSpace looks up the mount
+# holding its cachedir and aborts with "not enough free disk space" when it
+# cannot. arch-chroot does the same self-bind.
+mountpoint -q "$ROOT" || mount --bind "$ROOT" "$ROOT"
 for m in dev sys; do mountpoint -q "$ROOT/$m" || mount --rbind "/$m" "$ROOT/$m"; done
 mountpoint -q "$ROOT/proc" || mount -t proc proc "$ROOT/proc"
 # The runner's /etc/resolv.conf points at systemd-resolved's stub; the real
