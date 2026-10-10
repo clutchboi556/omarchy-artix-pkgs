@@ -1,0 +1,43 @@
+# omarchy-artix-pkgs: wayland-pipewire-idle-inhibit, built from upstream's tag.
+#
+# WHY IT IS HERE: omarchy's idle watcher honours the Wayland idle-inhibit
+# protocol and nothing else, and browsers do not raise one, so without this
+# daemon the session locks in the middle of a video. It is in no Artix repo and
+# not in omarchy's, only the AUR -- and these boxes take nothing from the AUR.
+# Built for BOTH arches for that reason (every other entry here is aarch64-only).
+#
+# Same build as the AUR recipe, with its source checksum re-verified against the
+# v0.7.1 tag. The systemd user unit upstream ships is left out: omarchy-artix
+# carries the dinit service (dinit/user/wayland-pipewire-idle-inhibit).
+
+pkgname=wayland-pipewire-idle-inhibit
+pkgver=0.7.1
+pkgrel=1
+pkgdesc="Inhibit wayland idle when computer is playing sound"
+arch=('x86_64' 'aarch64')
+url="https://github.com/rafaelrc7/wayland-pipewire-idle-inhibit"
+license=('GPL-3.0-only')
+depends=('gcc-libs' 'glibc' 'libpipewire')
+makedepends=('cargo' 'clang' 'wayland' 'wayland-protocols')
+options=('!debug')
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('6644562aa9ac0210ae7203453f7d3d38fe9d74059e0864d60e13b45033dc2652')
+
+prepare() {
+  cd "$pkgname-$pkgver"
+  export RUSTUP_TOOLCHAIN=stable
+  cargo fetch --locked --target "$(rustc --print host-tuple)"
+}
+
+build() {
+  cd "$pkgname-$pkgver"
+  export RUSTUP_TOOLCHAIN=stable
+  export CARGO_TARGET_DIR=target
+  cargo build --frozen --release
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  install -Dm0755 -t "$pkgdir/usr/bin/" "target/release/$pkgname"
+  install -Dm0644 -t "$pkgdir/usr/share/licenses/$pkgname/" LICENCE
+}

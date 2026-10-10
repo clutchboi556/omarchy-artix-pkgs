@@ -1,8 +1,9 @@
 #!/bin/bash
-# ci/build.sh -- build packages.txt for aarch64 inside a clean Armtix root and
-# stage an updated pacman repo for ci/publish.sh.
+# ci/build.sh -- build packages.txt for this host's arch inside a clean Artix
+# root and stage an updated pacman repo for ci/publish.sh.
 #
-# Runs as root on an aarch64 host (the GitHub ubuntu-24.04-arm runner). Inputs:
+# Runs as root on an aarch64 host (the GitHub ubuntu-24.04-arm runner), against
+# Armtix, or on an x86_64 host (ubuntu-24.04), against Artix. Inputs:
 #   out/current/omarchy-artix.db.tar.gz   the published db, if there is one
 #   PKG_SIGNING_KEY                        armored secret key (optional locally)
 #   FORCE=true                             rebuild even when the version is published
@@ -15,8 +16,11 @@
 #   against whatever Qt, ffmpeg and tesseract the build root has. Build them
 #   against a different distribution's versions and they install fine and then
 #   fail to start on the uConsole. The root is Armtix's own dinit image, updated
-#   to the current repos, so it matches what an updated box runs.
+#   to the current repos, so it matches what an updated box runs. On x86_64 the
+#   same reasoning picks Artix's own dinit image.
 set -euo pipefail
+
+ARCH=$(uname -m)
 
 HERE=$(cd "$(dirname "$0")/.." && pwd)
 ROOT=${ROOT:-/armtix}
@@ -28,9 +32,11 @@ IMAGE_MIRRORS=(https://armtixlinux.org/images https://armtix.artixlinux.org/imag
 PKG_MIRRORS=('https://repo.armtixlinux.org/$repo/os/$arch' 'https://armtix.artixlinux.org/repos/$repo/os/$arch')
 REPO=omarchy-artix
 OMARCHY_PKGS=https://github.com/omacom/omarchy-pkgs.git
-PUBLISHED=https://github.com/${GITHUB_REPOSITORY:-clutchboi556/omarchy-artix-pkgs}/releases/download/aarch64
+PUBLISHED=https://github.com/${GITHUB_REPOSITORY:-clutchboi556/omarchy-artix-pkgs}/releases/download/$ARCH
+# x86_64: Artix publishes no rootfs tarball, only this image (amd64 only).
+ARTIX_IMAGE=docker.io/artixlinux/artixlinux:base-dinit
 
-[[ $(uname -m) == aarch64 ]] || { echo "build.sh: needs an aarch64 host" >&2; exit 1; }
+[[ $ARCH == aarch64 || $ARCH == x86_64 ]] || { echo "build.sh: no build root for $ARCH" >&2; exit 1; }
 (( EUID == 0 )) || { echo "build.sh: run as root" >&2; exit 1; }
 mkdir -p "$OUT/publish" "$OUT/current"
 : >"$OUT/stale"; : >"$OUT/failed"
@@ -41,7 +47,14 @@ asbuilder() { chroot "$ROOT" /usr/bin/env -i PATH=/usr/bin HOME=/home/builder LA
 
 # ── 1. the build root ──────────────────────────────────────────────────────
 echo "::group::Armtix root"
-if [[ ! -x $ROOT/usr/bin/pacman ]]; then
+if [[ ! -x $ROOT/usr/bin/pacman && $ARCH == x86_64 ]]; then
+  docker pull -q "$ARTIX_IMAGE"
+  echo "image: $(docker image inspect --format '{{index .RepoDigests 0}}' "$ARTIX_IMAGE")"
+  cid=$(docker create "$ARTIX_IMAGE" /bin/true)
+  mkdir -p "$ROOT"
+  docker export "$cid" | tar -xp -C "$ROOT" --numeric-owner
+  docker rm -f "$cid" >/dev/null
+elif [[ ! -x $ROOT/usr/bin/pacman ]]; then
   for IMAGES in "${IMAGE_MIRRORS[@]}"; do
     line=$(curl -fsSL "$IMAGES/sha256sums" | grep -E ' armtix-dinit-[0-9]+\.tar\.xz$' | sort -k2 | tail -1) && break
   done
@@ -68,7 +81,8 @@ mountpoint -q "$ROOT/proc" || mount -t proc proc "$ROOT/proc"
 rm -f "$ROOT/etc/resolv.conf"
 cp -L /run/systemd/resolve/resolv.conf "$ROOT/etc/resolv.conf" 2>/dev/null || cp -L /etc/resolv.conf "$ROOT/etc/resolv.conf"
 
-printf 'Server = %s\n' "${PKG_MIRRORS[@]}" >"$ROOT/etc/pacman.d/mirrorlist"
+# Armtix only: Artix's own mirrorlist, shipped in its image, works from runners.
+[[ $ARCH == aarch64 ]] && printf 'Server = %s\n' "${PKG_MIRRORS[@]}" >"$ROOT/etc/pacman.d/mirrorlist"
 inroot pacman-key --init >/dev/null
 inroot pacman-key --populate >/dev/null 2>&1 || true
 inroot pacman -Syu --noconfirm --needed base-devel git sudo
@@ -98,8 +112,10 @@ mkdir -p "$ROOT/home/builder/build"
 git clone -q --depth 1 --branch master "$OMARCHY_PKGS" /tmp/omarchy-pkgs
 echo "omarchy-pkgs at $(git -C /tmp/omarchy-pkgs rev-parse --short HEAD)"
 wanted=()
-while read -r src name; do
+while read -r src name arches; do
   [[ -z $src || $src == \#* ]] && continue
+  # third column: the arches to build it for, comma-separated; default aarch64
+  [[ ,${arches:-aarch64}, == *,$ARCH,* ]] || continue
   dst=$ROOT/home/builder/build/$name
   case $src in
     omarchy) cp -a "/tmp/omarchy-pkgs/pkgbuilds/$name" "$dst" ;;

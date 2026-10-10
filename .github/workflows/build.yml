@@ -1,4 +1,4 @@
-name: build aarch64
+name: build
 
 on:
   push:
@@ -15,29 +15,38 @@ on:
 permissions:
   contents: write
 
-concurrency:
-  group: build-aarch64
-  cancel-in-progress: false
-
 jobs:
   build:
-    runs-on: ubuntu-24.04-arm
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+          - arch: x86_64
+            runner: ubuntu-24.04
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 240
+    # one run per arch at a time: two would race on that arch's release db
+    concurrency:
+      group: build-${{ matrix.arch }}
+      cancel-in-progress: false
     env:
       GH_TOKEN: ${{ github.token }}
+      ARCH: ${{ matrix.arch }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Ensure the release exists
         run: |
-          gh release view aarch64 >/dev/null 2>&1 || gh release create aarch64 \
-            --title "aarch64 packages" --latest=false \
-            --notes "pacman repo for omarchy-artix on aarch64. Server = https://github.com/${{ github.repository }}/releases/download/aarch64"
+          gh release view "$ARCH" >/dev/null 2>&1 || gh release create "$ARCH" \
+            --title "$ARCH packages" --latest=false \
+            --notes "pacman repo for omarchy-artix on $ARCH. Server = https://github.com/${{ github.repository }}/releases/download/$ARCH"
 
       - name: Fetch the published db
         run: |
           mkdir -p out/current
-          gh release download aarch64 -D out/current \
+          gh release download "$ARCH" -D out/current \
             -p 'omarchy-artix.db.tar.gz' -p 'omarchy-artix.files.tar.gz' || true
 
       - name: Build
@@ -47,4 +56,4 @@ jobs:
         run: sudo --preserve-env=PKG_SIGNING_KEY,FORCE ci/build.sh
 
       - name: Publish
-        run: sudo chown -R "$USER" out && ci/publish.sh
+        run: sudo chown -R "$USER" out && ARCH="$ARCH" ci/publish.sh

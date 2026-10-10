@@ -1,11 +1,11 @@
 #!/bin/bash
-# ci/publish.sh -- push what ci/build.sh staged to the rolling `aarch64` release,
-# which IS the pacman repo: Server = https://github.com/<repo>/releases/download/aarch64
+# ci/publish.sh -- push what ci/build.sh staged to the rolling release named for
+# the arch, which IS the pacman repo: Server = https://github.com/<repo>/releases/download/<arch>
 #
 # New files first, stale ones after, so the db never points at a missing file.
 set -euo pipefail
 OUT=${OUT:-out}
-TAG=aarch64
+TAG=${ARCH:-$(uname -m)}
 
 shopt -s nullglob
 files=("$OUT"/publish/*)

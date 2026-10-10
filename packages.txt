@@ -1,4 +1,9 @@
-# Packages built for aarch64 against Armtix and published as a pacman repo.
+# Packages built against Armtix (aarch64) and Artix (x86_64) and published as
+# one pacman repo per arch.
+#
+#   SOURCE NAME [ARCHES]   ARCHES is a comma-separated list, default aarch64:
+#                          almost everything here exists only because omarchy
+#                          publishes no aarch64 build of it.
 #
 #   omarchy NAME   pkgbuilds/NAME from omacom/omarchy-pkgs (branch master, latest
 #                  at build time -- omarchy's own recipes, which already declare
@@ -11,8 +16,9 @@
 # ORDER IS BUILD ORDER: a recipe whose dependencies are built here must come
 # after them (pinta after dotnet-core-bin).
 #
-# Only what the ARM boxes cannot get elsewhere: not in Armtix, not in omarchy's
-# aarch64 repo, not an arch-independent package from its x86_64 repo.
+# Only what the boxes cannot get elsewhere: on ARM, not in Armtix, not in
+# omarchy's aarch64 repo, not an arch-independent package from its x86_64 repo;
+# on x86_64, not in Artix and not in omarchy's repo.
 omarchy asdcontrol
 omarchy tzupdate
 omarchy omasnap
@@ -25,3 +31,4 @@ omarchy hyprland-preview-share-picker
 omarchy dotnet-core-bin
 omarchy pinta
 local   localsend
+local   wayland-pipewire-idle-inhibit aarch64,x86_64
