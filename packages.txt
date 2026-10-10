@@ -10,8 +10,11 @@
 #                  aarch64; omarchy just never publishes the aarch64 builds)
 #   local NAME     pkgbuilds/NAME in this repo, for the rare recipe omarchy's
 #                  cannot be built from here (see the recipe's header for why)
+#   arch NAME      Arch Linux's official recipe (gitlab.archlinux.org/archlinux/
+#                  packaging), with this arch added to arch=() -- for packages
+#                  Armtix does not carry. Only recipes checked to be portable.
 #
-# No AUR. Every recipe is omarchy's or ours, reviewed in this repo.
+# No AUR. Every recipe is omarchy's, Arch's or ours, reviewed in this repo.
 #
 # ORDER IS BUILD ORDER: a recipe whose dependencies are built here must come
 # after them (pinta after dotnet-core-bin).
@@ -32,3 +35,8 @@ omarchy dotnet-core-bin
 omarchy pinta
 local   localsend
 local   wayland-pipewire-idle-inhibit aarch64,x86_64
+# In omarchy's package list, in Artix's x86_64 repos, missing from Armtix.
+arch    bluez-tools
+arch    kernel-modules-hook
+arch    nautilus-python
+arch    usage

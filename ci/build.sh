@@ -32,6 +32,8 @@ IMAGE_MIRRORS=(https://armtixlinux.org/images https://armtix.artixlinux.org/imag
 PKG_MIRRORS=('https://repo.armtixlinux.org/$repo/os/$arch' 'https://armtix.artixlinux.org/repos/$repo/os/$arch')
 REPO=omarchy-artix
 OMARCHY_PKGS=https://github.com/omacom/omarchy-pkgs.git
+# Arch's official recipes (never the AUR), one git repo per package.
+ARCH_PKGS=https://gitlab.archlinux.org/archlinux/packaging/packages
 PUBLISHED=https://github.com/${GITHUB_REPOSITORY:-clutchboi556/omarchy-artix-pkgs}/releases/download/$ARCH
 # x86_64: Artix publishes no rootfs tarball, only this image (amd64 only).
 ARTIX_IMAGE=docker.io/artixlinux/artixlinux:base-dinit
@@ -120,6 +122,14 @@ while read -r src name arches; do
   case $src in
     omarchy) cp -a "/tmp/omarchy-pkgs/pkgbuilds/$name" "$dst" ;;
     local)   cp -a "$HERE/pkgbuilds/$name" "$dst" ;;
+    # Arch's own recipe, which declares only x86_64: add this arch, exactly as
+    # Arch Linux ARM does. Only for recipes reviewed as portable (packages.txt).
+    arch)
+      git clone -q --depth 1 "$ARCH_PKGS/$name.git" "$dst"
+      echo "$name: archlinux/packaging at $(git -C "$dst" rev-parse --short HEAD)"
+      rm -rf "$dst/.git"
+      grep -Eq "^arch=\(.*(any|$ARCH)" "$dst/PKGBUILD" \
+        || sed -i -E "s/^arch=\((.*)\)/arch=(\1 '$ARCH')/" "$dst/PKGBUILD" ;;
     *) echo "unknown source '$src' for $name" >&2; echo "$name" >>"$OUT/failed"; continue ;;
   esac
   wanted+=("$name")

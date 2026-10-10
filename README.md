@@ -9,11 +9,16 @@ boxes need but cannot get anywhere else without the AUR:
   pinta (with the .NET runtime it needs) and localsend.
 - **both arches**, against Armtix and Artix: wayland-pipewire-idle-inhibit,
   without which the session locks during video.
+- **aarch64**, from Arch Linux's official recipes with `aarch64` added: the
+  packages in omarchy's list that Artix carries on x86_64 but Armtix lacks --
+  bluez-tools, kernel-modules-hook, nautilus-python, usage.
 
 No AUR. `omarchy` entries build Omarchy's own recipes from
 [omacom/omarchy-pkgs](https://github.com/omacom/omarchy-pkgs), which already
-declare `aarch64`; `local` entries are recipes in `pkgbuilds/` here, used only
-where omarchy's cannot be built (localsend: see its header). See `packages.txt`.
+declare `aarch64`; `arch` entries build Arch Linux's official recipes from
+[archlinux/packaging](https://gitlab.archlinux.org/archlinux/packaging/packages);
+`local` entries are recipes in `pkgbuilds/` here, used only where neither can
+be built (see each recipe's header). See `packages.txt`.
 
 ## How it works
 
