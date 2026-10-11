@@ -1,9 +1,13 @@
 # Packages built against Armtix (aarch64) and Artix (x86_64) and published as
 # one pacman repo per arch.
 #
-#   SOURCE NAME [ARCHES]   ARCHES is a comma-separated list, default aarch64:
+#   SOURCE NAME [ARCHES [OPTIONS]]
+#                          ARCHES is a comma-separated list, default aarch64:
 #                          almost everything here exists only because omarchy
 #                          publishes no aarch64 build of it.
+#                          OPTIONS: nocheck builds without the recipe's test
+#                          step, for one whose tests need a package no repo
+#                          here carries. Say why beside the entry.
 #
 #   omarchy NAME   pkgbuilds/NAME from omacom/omarchy-pkgs (branch master, latest
 #                  at build time -- omarchy's own recipes, which already declare
@@ -39,4 +43,6 @@ local   wayland-pipewire-idle-inhibit aarch64,x86_64
 arch    bluez-tools
 arch    kernel-modules-hook
 arch    nautilus-python
-arch    usage
+# nocheck: since 6.12.1 Arch's recipe tests with mise, which Armtix does not
+# carry (2026-10-11). The build itself needs only cargo.
+arch    usage aarch64 nocheck

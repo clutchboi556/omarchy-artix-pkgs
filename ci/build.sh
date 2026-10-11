@@ -114,10 +114,14 @@ mkdir -p "$ROOT/home/builder/build"
 git clone -q --depth 1 --branch master "$OMARCHY_PKGS" /tmp/omarchy-pkgs
 echo "omarchy-pkgs at $(git -C /tmp/omarchy-pkgs rev-parse --short HEAD)"
 wanted=()
-while read -r src name arches; do
+declare -A NOCHECK=()
+while read -r src name arches opts; do
   [[ -z $src || $src == \#* ]] && continue
   # third column: the arches to build it for, comma-separated; default aarch64
   [[ ,${arches:-aarch64}, == *,$ARCH,* ]] || continue
+  # fourth column: nocheck builds without the recipe's test step, and so
+  # without its checkdepends
+  [[ ,${opts:-}, == *,nocheck,* ]] && NOCHECK[$name]=1
   dst=$ROOT/home/builder/build/$name
   case $src in
     omarchy) cp -a "/tmp/omarchy-pkgs/pkgbuilds/$name" "$dst" ;;
@@ -169,7 +173,7 @@ for name in "${wanted[@]}"; do
     continue
   fi
   echo "::group::$name ${PUBVER[${pkgs[0]}]:-(new)} -> $ver"
-  if asbuilder "cd ~/build/$name && makepkg -s --noconfirm --cleanbuild --needed"; then
+  if asbuilder "cd ~/build/$name && makepkg -s --noconfirm --cleanbuild --needed${NOCHECK[$name]:+ --nocheck}"; then
     built+=("$name")
     mapfile -t made < <(asbuilder "cd ~/build/$name && makepkg --packagelist")
     for f in "${made[@]}"; do [[ -f $ROOT$f ]] && cp "$ROOT$f" "$ROOT/localrepo/"; done
