@@ -100,13 +100,28 @@ chmod 440 "$ROOT/etc/sudoers.d/builder"
 # other fetch sees it, and the clone's stored remote stays the plain URL.
 # Without the token those two recipes fail to fetch and are reported failed;
 # everything else still builds.
-if [[ -n ${OMARCHY_ARTIX_TOKEN:-} ]]; then
+# Whitespace is stripped: a token pasted with a trailing newline would break
+# the config line.
+artix_token=${OMARCHY_ARTIX_TOKEN:-}
+artix_token=${artix_token//[[:space:]]/}
+if [[ -n $artix_token ]]; then
+  echo "omarchy-artix token: present (${#artix_token} chars)"
   umask_was=$(umask); umask 077
   printf '[url "https://x-access-token:%s@github.com/clutchboi556/omarchy-artix.git"]\n\tinsteadOf = https://github.com/clutchboi556/omarchy-artix.git\n' \
-    "$OMARCHY_ARTIX_TOKEN" >"$ROOT/home/builder/.gitconfig"
+    "$artix_token" >"$ROOT/home/builder/.gitconfig"
   umask "$umask_was"
   inroot chown builder:builder /home/builder/.gitconfig
+  # Fail here, in one readable line, rather than as two recipes that "could
+  # not read Username" much later.
+  if asbuilder "git ls-remote https://github.com/clutchboi556/omarchy-artix.git HEAD >/dev/null"; then
+    echo "omarchy-artix token: can read clutchboi556/omarchy-artix"
+  else
+    echo "::error::OMARCHY_ARTIX_TOKEN cannot read clutchboi556/omarchy-artix (expired, or missing Contents: Read-only on that repo?)"
+  fi
+else
+  echo "::warning::OMARCHY_ARTIX_TOKEN is not set; omarchy and omarchy-artix will fail to fetch"
 fi
+unset artix_token
 sed -i "s/^#\?MAKEFLAGS=.*/MAKEFLAGS=\"-j$(nproc)\"/" "$ROOT/etc/makepkg.conf"
 echo "::endgroup::"
 
