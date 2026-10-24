@@ -30,11 +30,14 @@ OUT=${OUT:-$HERE/out}
 #   the package mirrors below.
 IMAGE_MIRRORS=(https://armtixlinux.org/images https://armtix.artixlinux.org/images)
 PKG_MIRRORS=('https://repo.armtixlinux.org/$repo/os/$arch' 'https://armtix.artixlinux.org/repos/$repo/os/$arch')
-REPO=omarchy-artix
+# The repo CI publishes to. Every build lands in the TESTING channel; a box on
+# stable gets it only after ci/promote.sh copies that snapshot to omartix-<arch>.
+REPO=${REPO:-omartix-testing}
+TAG=${TAG:-$REPO-$ARCH}
 OMARCHY_PKGS=https://github.com/omacom/omarchy-pkgs.git
 # Arch's official recipes (never the AUR), one git repo per package.
 ARCH_PKGS=https://gitlab.archlinux.org/archlinux/packaging/packages
-PUBLISHED=https://github.com/${GITHUB_REPOSITORY:-clutchboi556/omarchy-artix-pkgs}/releases/download/$ARCH
+PUBLISHED=https://github.com/${GITHUB_REPOSITORY:-clutchboi556/omarchy-artix-pkgs}/releases/download/$TAG
 # x86_64: Artix publishes no rootfs tarball, only this image (amd64 only).
 ARTIX_IMAGE=docker.io/artixlinux/artixlinux:base-dinit
 
@@ -241,6 +244,17 @@ if (( ${#new[@]} || ${#gone[@]} )); then
   (( ${#gone[@]} )) && inroot repo-remove --quiet "/repo/$REPO.db.tar.gz" "${gone[@]}"
   # Release assets cannot be symlinks; publish the names pacman asks for as copies.
   for k in db files; do cp -L "$ROOT/repo/$REPO.$k.tar.gz" "$ROOT/repo/$REPO.$k.tmp"; rm -f "$ROOT/repo/$REPO.$k"; mv "$ROOT/repo/$REPO.$k.tmp" "$ROOT/repo/$REPO.$k"; done
+  # Sign the database too, so boxes can use SigLevel = Required: a tampered
+  # index can then not even point at a different signed package, and
+  # omarchy-artix-syu treats the repo as signed instead of cross-checking
+  # mirrors it doesn't have.
+  if [[ -n ${signer:-} ]]; then
+    for k in db files; do
+      for f in "$ROOT/repo/$REPO.$k" "$ROOT/repo/$REPO.$k.tar.gz"; do
+        gpg --batch --yes --detach-sign --local-user "$signer" --output "$f.sig" "$f"
+      done
+    done
+  fi
   find "$ROOT/repo" -maxdepth 1 -type f ! -name "*.old" -exec cp -t "$OUT/publish/" {} +
 fi
 rm -rf "$GNUPGHOME"

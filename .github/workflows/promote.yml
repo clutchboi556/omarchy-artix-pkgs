@@ -1,0 +1,35 @@
+name: promote
+
+# Copy the [omartix-testing] snapshot to [omartix] (stable). Run by hand once
+# the testing build has been tried on a box that follows testing.
+on:
+  workflow_dispatch:
+    inputs:
+      arch:
+        description: Which arch to promote
+        type: choice
+        options: [both, aarch64, x86_64]
+        default: both
+
+permissions:
+  contents: write
+
+jobs:
+  promote:
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [aarch64, x86_64]
+    runs-on: ubuntu-24.04
+    concurrency:
+      group: build-${{ matrix.arch }}
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ARCH: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@v4
+        if: inputs.arch == 'both' || inputs.arch == matrix.arch
+      - name: Promote
+        if: inputs.arch == 'both' || inputs.arch == matrix.arch
+        run: ci/promote.sh

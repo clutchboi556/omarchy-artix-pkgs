@@ -34,27 +34,29 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       ARCH: ${{ matrix.arch }}
+      # Builds publish to the testing channel; promote.yml copies to stable.
+      TAG: omartix-testing-${{ matrix.arch }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Ensure the release exists
         run: |
-          gh release view "$ARCH" >/dev/null 2>&1 || gh release create "$ARCH" \
-            --title "$ARCH packages" --latest=false \
-            --notes "pacman repo for omarchy-artix on $ARCH. Server = https://github.com/${{ github.repository }}/releases/download/$ARCH"
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" \
+            --title "omartix-testing ($ARCH)" --latest=false --prerelease \
+            --notes "pacman repo [omartix-testing] for $ARCH. Server = https://github.com/${{ github.repository }}/releases/download/omartix-testing-\$arch"
 
       - name: Fetch the published db
         run: |
           mkdir -p out/current
-          gh release download "$ARCH" -D out/current \
-            -p 'omarchy-artix.db.tar.gz' -p 'omarchy-artix.files.tar.gz' || true
+          gh release download "$TAG" -D out/current \
+            -p 'omartix-testing.db.tar.gz' -p 'omartix-testing.files.tar.gz' || true
 
       - name: Build
         env:
           PKG_SIGNING_KEY: ${{ secrets.PKG_SIGNING_KEY }}
           OMARCHY_ARTIX_TOKEN: ${{ secrets.OMARCHY_ARTIX_TOKEN }}
           FORCE: ${{ inputs.force || 'false' }}
-        run: sudo --preserve-env=PKG_SIGNING_KEY,OMARCHY_ARTIX_TOKEN,FORCE ci/build.sh
+        run: sudo --preserve-env=PKG_SIGNING_KEY,OMARCHY_ARTIX_TOKEN,FORCE,TAG ci/build.sh
 
       - name: Publish
-        run: sudo chown -R "$USER" out && ARCH="$ARCH" ci/publish.sh
+        run: sudo chown -R "$USER" out && ci/publish.sh
