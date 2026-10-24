@@ -52,8 +52,9 @@ jobs:
       - name: Build
         env:
           PKG_SIGNING_KEY: ${{ secrets.PKG_SIGNING_KEY }}
+          OMARCHY_ARTIX_TOKEN: ${{ secrets.OMARCHY_ARTIX_TOKEN }}
           FORCE: ${{ inputs.force || 'false' }}
-        run: sudo --preserve-env=PKG_SIGNING_KEY,FORCE ci/build.sh
+        run: sudo --preserve-env=PKG_SIGNING_KEY,OMARCHY_ARTIX_TOKEN,FORCE ci/build.sh
 
       - name: Publish
         run: sudo chown -R "$USER" out && ARCH="$ARCH" ci/publish.sh

@@ -91,6 +91,19 @@ inroot pacman -Syu --noconfirm --needed base-devel git sudo
 inroot id -u builder >/dev/null 2>&1 || inroot useradd -m builder
 echo 'builder ALL=(ALL) NOPASSWD: /usr/bin/pacman' >"$ROOT/etc/sudoers.d/builder"
 chmod 440 "$ROOT/etc/sudoers.d/builder"
+# The omarchy and omarchy-artix recipes fetch the patch series from
+# clutchboi556/omarchy-artix, which is private. OMARCHY_ARTIX_TOKEN is a
+# read-only token for that one repo. insteadOf adds it only to that URL, so no
+# other fetch sees it, and the clone's stored remote stays the plain URL.
+# Without the token those two recipes fail to fetch and are reported failed;
+# everything else still builds.
+if [[ -n ${OMARCHY_ARTIX_TOKEN:-} ]]; then
+  umask_was=$(umask); umask 077
+  printf '[url "https://x-access-token:%s@github.com/clutchboi556/omarchy-artix.git"]\n\tinsteadOf = https://github.com/clutchboi556/omarchy-artix.git\n' \
+    "$OMARCHY_ARTIX_TOKEN" >"$ROOT/home/builder/.gitconfig"
+  umask "$umask_was"
+  inroot chown builder:builder /home/builder/.gitconfig
+fi
 sed -i "s/^#\?MAKEFLAGS=.*/MAKEFLAGS=\"-j$(nproc)\"/" "$ROOT/etc/makepkg.conf"
 echo "::endgroup::"
 
