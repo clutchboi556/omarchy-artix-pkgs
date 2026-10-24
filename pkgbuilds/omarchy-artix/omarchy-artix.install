@@ -1,0 +1,15 @@
+post_install() {
+  /usr/bin/omarchy-artix-render-services
+  echo
+  echo "Next, as each desktop user (not root):"
+  echo "    omarchy-artix-setup-user            a new user"
+  echo "    omarchy-artix-setup-user --switch   a user moving from an install.sh checkout"
+}
+
+post_upgrade() {
+  /usr/bin/omarchy-artix-render-services --quiet
+}
+
+pre_remove() {
+  /usr/bin/omarchy-artix-render-services --remove --quiet
+}

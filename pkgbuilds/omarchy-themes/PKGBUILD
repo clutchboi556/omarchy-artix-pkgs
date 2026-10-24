@@ -1,0 +1,51 @@
+# Maintainer: clutchboi556
+#
+# Omarchy's built-in themes (colors, templates, wallpapers), split out of the
+# omarchy package.
+#
+# Upstream ships themes inside omarchy and splits off only the intro videos
+# (omarchy-themes-intros), because upstream rebuilds omarchy once per release.
+# The Artix omarchy is rebuilt for every patch commit, and themes are 66 MB of
+# its 68, so keeping them there would mean a 66 MB download per patch. No patch
+# in the series touches themes/, so this builds from plain upstream.
+#
+# VERSION follows omarchy-themes-intros: the date of the last upstream commit
+# that touched themes/ at or before the PIN (`git log -1 --date=format:%Y.%m.%d
+# PIN -- themes`), with _commit set to that commit. A PIN bump that doesn't
+# touch themes leaves this package alone.
+#
+# The intros stay in omarchy-themes-intros, built from upstream's own recipe;
+# both install into /usr/share/omarchy/themes/ without overlapping.
+#
+# Local build without the network: OMARCHY_SRC=<git repo holding _commit>
+pkgname=omarchy-themes
+_commit=ecf0eb362283efad6404b939981c7ef8d58039b3
+pkgver=2026.10.14
+pkgrel=1
+pkgdesc='Built-in themes for Omarchy on Artix'
+arch=('any')
+url='https://github.com/omacom/omarchy'
+license=('MIT')
+makedepends=('git')
+
+if [[ -n ${OMARCHY_SRC:-} ]]; then
+  source=()
+  sha256sums=()
+else
+  source=("omarchy::git+https://github.com/omacom/omarchy.git#commit=${_commit}")
+  sha256sums=('SKIP')
+fi
+
+prepare() {
+  if [[ -n ${OMARCHY_SRC:-} ]]; then
+    rm -rf "$srcdir/omarchy" && mkdir "$srcdir/omarchy"
+    git -C "$OMARCHY_SRC" archive "$_commit" themes | tar -x -C "$srcdir/omarchy"
+  fi
+}
+
+package() {
+  cd "$srcdir/omarchy"
+  install -d "$pkgdir/usr/share/omarchy"
+  cp -a themes "$pkgdir/usr/share/omarchy/"
+  rm -rf "$pkgdir"/usr/share/omarchy/themes/*/backgrounds/intros
+}

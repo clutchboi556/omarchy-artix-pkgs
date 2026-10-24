@@ -46,3 +46,13 @@ arch    nautilus-python
 # nocheck: since 6.12.1 Arch's recipe tests with mise, which Armtix does not
 # carry (2026-10-11). The build itself needs only cargo.
 arch    usage aarch64 nocheck
+
+# Omarchy itself, packaged for Artix (see each recipe's header). In this order:
+# omarchy depends on omarchy-artix and omarchy-themes, and makepkg -s installs
+# depends from the local build repo. omarchy and omarchy-artix fetch the private
+# omarchy-artix repo, so they need the OMARCHY_ARTIX_TOKEN secret. Both arches:
+# x86_64 boxes (the workstation) run the same packaged omarchy.
+local   omarchy-artix aarch64,x86_64
+local   omarchy-themes aarch64,x86_64
+omarchy omarchy-themes-intros aarch64,x86_64
+local   omarchy aarch64,x86_64

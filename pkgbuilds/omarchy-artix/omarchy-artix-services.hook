@@ -1,0 +1,16 @@
+# Re-render the omarchy-artix dinit service descriptions when programs come or
+# go: a service's waits-for lines are kept only for programs that are installed.
+[Trigger]
+Type = Path
+Operation = Install
+Operation = Upgrade
+Operation = Remove
+Target = usr/bin/*
+Target = usr/share/omarchy-artix/dinit/*
+
+[Action]
+Description = Updating omarchy-artix dinit services...
+When = PostTransaction
+# Guarded: when omarchy-artix itself is removed this hook still fires, after
+# the script is gone.
+Exec = /bin/sh -c "[ ! -x /usr/bin/omarchy-artix-render-services ] || /usr/bin/omarchy-artix-render-services --quiet"

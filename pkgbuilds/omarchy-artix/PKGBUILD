@@ -1,0 +1,109 @@
+# Maintainer: clutchboi556
+#
+# The Artix layer under omarchy: what lets upstream's scripts run on dinit and
+# elogind instead of systemd. Built from the omarchy-artix repo.
+#
+# Replaces the system half of omarchy-artix's install.sh:
+#   shims (omarchy-svc, omarchy-timer, systemd-run, uwsm, uwsm-app,
+#     xdg-terminal-exec), helpers and omarchy-artix-* tools  -> /usr/bin
+#   the "Omarchy (Artix)" session entry                     -> /usr/share/wayland-sessions
+#   pam, profile.d, limits.d, the dinit shutdown hook       -> /etc
+#   the default monospace fontconfig rule                   -> /etc/fonts/conf.d
+#   dinit service templates, plugins, libs, migrations.skip -> /usr/share/omarchy-artix
+# The dinit service descriptions themselves are rendered into /etc/dinit.d by
+# omarchy-artix-render-services from the install scriptlet and a pacman hook,
+# because which waits-for lines they keep depends on what else is installed.
+#
+# The per-user half (branding, plugins, ~/.XCompose, services started at
+# login, migration markers) is omarchy-artix-setup-user, run once per user.
+#
+# xkb files are NOT here: omarchy-settings ships the same two files.
+#
+# VERSION: 0.r<commits>.g<hash> of the omarchy-artix repo at _commit.
+#
+# Local build: OMARCHY_ARTIX_SRC=<omarchy-artix working tree> (copied as-is)
+# ⚠ omarchy-artix is a PRIVATE repo; CI needs a token to fetch it.
+pkgname=omarchy-artix
+_commit=41de0491a417af28be022ceb9f5b2c9ae89f0506
+_count=176
+pkgver=0.r${_count}.g${_commit:0:7}
+pkgrel=1
+pkgdesc='Artix integration for Omarchy: dinit services, systemd and uwsm shims, session entry'
+arch=('any')
+url='https://github.com/clutchboi556/omarchy-artix'
+license=('MIT')
+depends=('bash' 'dinit' 'elogind' 'sudo' 'fontconfig')
+# The shims own these names. Real uwsm and xdg-terminal-exec would replace
+# them with tools that need a systemd user manager.
+provides=('uwsm' 'xdg-terminal-exec')
+conflicts=('uwsm' 'xdg-terminal-exec')
+install=omarchy-artix.install
+backup=('etc/pam.d/omarchy-lock-password' 'etc/security/limits.d/90-omarchy-nofile.conf')
+
+if [[ -n ${OMARCHY_ARTIX_SRC:-} ]]; then
+  source=()
+  sha256sums=()
+else
+  source=("omarchy-artix::git+https://github.com/clutchboi556/omarchy-artix.git#commit=${_commit}")
+  sha256sums=('SKIP')
+fi
+source+=('omarchy-artix-services.hook')
+sha256sums+=('SKIP')
+
+prepare() {
+  if [[ -n ${OMARCHY_ARTIX_SRC:-} ]]; then
+    rm -rf "$srcdir/omarchy-artix" && mkdir "$srcdir/omarchy-artix"
+    (cd "$OMARCHY_ARTIX_SRC" && tar --exclude=.git -c .) | tar -x -C "$srcdir/omarchy-artix"
+  fi
+}
+
+package() {
+  cd "$srcdir/omarchy-artix"
+
+  local f
+  for f in shims/* helpers/* bin/*; do
+    [[ -f $f ]] && install -Dm755 "$f" "$pkgdir/usr/bin/${f##*/}"
+  done
+
+  local share=$pkgdir/usr/share/omarchy-artix
+  install -d "$share"
+  cp -a lib dinit plugins "$share/"
+  install -Dm644 migrations.skip "$share/migrations.skip"
+  install -Dm755 check-deps.sh "$share/check-deps.sh"
+
+  for f in wayland-sessions/*.desktop; do
+    [[ -f $f ]] || continue
+    install -d "$pkgdir/usr/share/wayland-sessions"
+    sed -e 's|@HELPERBIN@|/usr/bin|g' "$f" >"$pkgdir/usr/share/wayland-sessions/${f##*/}"
+  done
+
+  # /etc from the repo, minus xkb (omarchy-settings has it).
+  local rel mode
+  while IFS= read -r rel; do
+    rel=${rel#./}
+    [[ $rel == xkb/* ]] && continue
+    mode=644; [[ -x etc/$rel ]] && mode=755
+    install -Dm$mode "etc/$rel" "$pkgdir/etc/$rel"
+  done < <(cd etc && find . -type f | sort)
+
+  # Same rule install.sh writes: a Nerd Font as the default monospace, so the
+  # shell's status icons resolve before a user ever runs `omarchy font set`.
+  install -d "$pkgdir/etc/fonts/conf.d"
+  cat >"$pkgdir/etc/fonts/conf.d/09-omarchy-monospace.conf" <<'XML'
+<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+<!-- From the omarchy-artix package. Makes a Nerd Font the default monospace so
+     the shell's status icons resolve; a per-user `omarchy font set` loads
+     later and overrides this. -->
+<fontconfig>
+  <match target="pattern">
+    <test name="family" qual="any"><string>monospace</string></test>
+    <edit name="family" mode="prepend_first" binding="strong">
+      <string>JetBrainsMono Nerd Font</string>
+    </edit>
+  </match>
+</fontconfig>
+XML
+
+  install -Dm644 "$srcdir/omarchy-artix-services.hook" "$pkgdir/usr/share/libalpm/hooks/omarchy-artix-services.hook"
+}

@@ -1,0 +1,332 @@
+# Maintainer: clutchboi556
+#
+# omarchy and omarchy-settings for Artix (dinit), built from one patched tree.
+#
+# A fork of omacom/omarchy-pkgs pkgbuilds/omarchy and pkgbuilds/omarchy-settings.
+# Same package names and the same file layout (/usr/bin/omarchy-*,
+# /usr/share/omarchy/...), so upstream code that hardcodes those paths works
+# without a patch. The source is upstream at the omarchy-artix PIN with the
+# omarchy-artix patch series applied in prepare().
+#
+# ONE RECIPE, TWO PACKAGES. Upstream keeps two recipes that must carry the same
+# commit. Here they are a split package: patches 0019, 0030 and 0043 change
+# files on both sides, so both halves must come from the same patched tree, and
+# a split package makes that impossible to get wrong.
+#
+# Themes are NOT in here. They are 66 MB of wallpapers that change every few
+# weeks, while this recipe's version moves with every patch commit. See
+# pkgbuilds/omarchy-themes.
+#
+# VERSION: <upstream tag>.r<commits since tag>.g<PIN>.a<series serial>
+#   tag     `git describe --tags PIN`, in pacman form: v4.5.0-rc1 -> 4.5.0rc1.
+#           The rc is attached with no separator, upstream's own rule:
+#           4.5.0.rc1 and 4.5.0_rc1 sort AFTER 4.5.0.
+#   r<N>    commits from that tag to PIN.
+#   g<hash> the PIN, for provenance only.
+#   a<N>    `git rev-list --count` of omarchy-artix at _artix_commit. It grows
+#           with every omarchy-artix commit, so a series change alone is a new
+#           version.
+#   Checked with vercmp: 4.5.0rc1 < 4.5.0rc1.r1.g0a7beb7.a172 < ...a173
+#   < 4.5.0rc1.r2.g<x>.a1 < 4.5.0rc2 < 4.5.0 < 4.5.0.r3.g<x>.a1 < 4.5.1.
+#   ⚠ PIN must never move backwards: the version would drop and pacman would
+#     keep the newer local build. If it ever has to, bump epoch.
+#   pkgrel resets to 1 with every pkgver change.
+#
+# LOCAL BUILDS without the network (both are optional):
+#   OMARCHY_SRC=<any git repo holding _commit>   e.g. ~/.local/share/omarchy;
+#                                                 only `git archive` is run on it
+#   OMARCHY_ARTIX_SRC=<omarchy-artix working tree> copied as-is, uncommitted
+#                                                  changes included
+#
+# ⚠ omarchy-artix is a PRIVATE repo, so CI needs a token to fetch it. Until
+#   that exists, CI cannot build this recipe.
+pkgbase=omarchy
+pkgname=('omarchy' 'omarchy-settings')
+_commit=0a7beb7d6fe2b677bdc57ff05518b073b2d6ee60
+_tag=4.5.0rc1
+_since=1
+_artix_commit=41de0491a417af28be022ceb9f5b2c9ae89f0506
+_series=176
+pkgver=${_tag}.r${_since}.g${_commit:0:7}.a${_series}
+pkgrel=1
+pkgdesc='Omarchy for Artix: upstream at the omarchy-artix PIN plus the Artix patch series'
+arch=('x86_64' 'aarch64')
+url='https://github.com/clutchboi556/omarchy-artix'
+license=('MIT')
+makedepends=('git' 'imagemagick')
+
+if [[ -n ${OMARCHY_SRC:-} || -n ${OMARCHY_ARTIX_SRC:-} ]]; then
+  source=()
+  sha256sums=()
+  [[ -n ${OMARCHY_SRC:-} ]] || source+=("omarchy::git+https://github.com/omacom/omarchy.git#commit=${_commit}")
+  [[ -n ${OMARCHY_ARTIX_SRC:-} ]] || source+=("omarchy-artix::git+https://github.com/clutchboi556/omarchy-artix.git#commit=${_artix_commit}")
+  for _s in "${source[@]}"; do sha256sums+=('SKIP'); done
+else
+  source=("omarchy::git+https://github.com/omacom/omarchy.git#commit=${_commit}"
+          "omarchy-artix::git+https://github.com/clutchboi556/omarchy-artix.git#commit=${_artix_commit}")
+  sha256sums=('SKIP' 'SKIP')
+fi
+
+prepare() {
+  cd "$srcdir"
+  if [[ -n ${OMARCHY_SRC:-} ]]; then
+    rm -rf omarchy && mkdir omarchy
+    git -C "$OMARCHY_SRC" archive "$_commit" | tar -x -C omarchy
+  fi
+  if [[ -n ${OMARCHY_ARTIX_SRC:-} ]]; then
+    rm -rf omarchy-artix && mkdir omarchy-artix
+    (cd "$OMARCHY_ARTIX_SRC" && tar --exclude=.git -c .) | tar -x -C omarchy-artix
+  fi
+
+  # The series is written against one upstream commit. A recipe pointing at a
+  # different one would build, and silently ship patches applied with fuzz.
+  local pin
+  pin=$(<omarchy-artix/PIN)
+  if [[ $pin != "$_commit" ]]; then
+    echo "omarchy-artix PIN is $pin but this recipe builds $_commit; update _commit" >&2
+    return 1
+  fi
+
+  cd omarchy
+  # git apply --3way needs a repository holding the pre-image blobs. A git
+  # source already is one; an archived tree is made into one here.
+  if ! git rev-parse --git-dir >/dev/null 2>&1; then
+    git init -q
+    git add -A
+    git -c user.name=build -c user.email=build@localhost commit -qm "upstream $_commit"
+  fi
+  local p
+  for p in "$srcdir"/omarchy-artix/patches/*.patch; do
+    if ! git apply --index "$p" 2>/dev/null; then
+      git apply --index --3way "$p" || { echo "patch failed: ${p##*/}" >&2; return 1; }
+      echo "applied with a 3-way merge: ${p##*/}"
+    fi
+  done
+}
+
+package_omarchy() {
+  pkgdesc='Omarchy for Artix: commands, shell, install scripts and migrations'
+  depends=(
+    "omarchy-settings=${pkgver}-${pkgrel}"
+    'omarchy-themes'
+    'omarchy-artix'
+    'hyprland'
+    'quickshell'
+    'xdg-desktop-portal-hyprland'
+    'wireplumber'
+    'pipewire'
+    'gnome-keyring'
+    'gum'
+    'jq'
+    'git'
+    'perl'
+    'fakeroot'
+    'pacman-contrib'
+    'ttf-jetbrains-mono-nerd'
+    'elogind'
+  )
+  # Dropped from upstream's depends: omarchy-keyring (we don't use upstream's
+  # repo), uwsm (systemd-only; omarchy-artix ships a shim), sddm (any greeter
+  # works), the x86 limine/snapper boot stack, omarchy-security-functions (kept
+  # in this package, see below). ttf-jetbrains-mono-nerd-basic is upstream-repo
+  # only, so it is the full Nerd Font here.
+  optdepends=('omarchy-themes-intros: animated intros for the theme backgrounds')
+  depends_aarch64=('networkmanager')
+  conflicts=('omarchy-dev')
+
+  cd "$srcdir/omarchy"
+
+  # Every command except:
+  #   the debug helpers, which upstream ships from omarchy-settings;
+  #   omarchy-channel-set, which rewrites pacman.conf for upstream's repos and
+  #     would pull upstream's unpatched omarchy over this one;
+  #   omarchy-upgrade-to-quattro and omarchy-system-factory-reset, which
+  #     rebuild an Arch install around limine and snapper.
+  # omarchy-sudo-passwordless and omarchy-security-functions stay here (upstream
+  # moves them to settings with its revoke hook): patch 0002 replaces that hook
+  # with the omarchy-nopasswd-sweep boot service from omarchy-artix.
+  install -d "$pkgdir/usr/bin" "$pkgdir/usr/share/omarchy/bin"
+  local bin base
+  for bin in bin/*; do
+    [[ -f $bin ]] || continue
+    base=${bin##*/}
+    case $base in
+      omarchy-debug|omarchy-debug-idle|omarchy-upload-log) continue ;;
+      omarchy-channel-set|omarchy-upgrade-to-quattro|omarchy-system-factory-reset) continue ;;
+    esac
+    install -Dm755 "$bin" "$pkgdir/usr/bin/$base"
+    ln -s "/usr/bin/$base" "$pkgdir/usr/share/omarchy/bin/$base"
+  done
+
+  # Hooks: the Hyprland reload pause/resume pair only. 00-omarchy-update-guard
+  # aborts any pacman -Syu not run through upstream's omarchy-update, and plain
+  # pacman -Syu is how this repo is meant to be used. 05-omarchy-passwordless-
+  # revoke is replaced by patch 0002's sweep.
+  install -Dm644 default/libalpm/hooks/10-omarchy-hyprland-reload-pause.hook "$pkgdir/usr/share/libalpm/hooks/10-omarchy-hyprland-reload-pause.hook"
+  install -Dm644 default/libalpm/hooks/90-omarchy-hyprland-reload-resume.hook "$pkgdir/usr/share/libalpm/hooks/90-omarchy-hyprland-reload-resume.hook"
+
+  cp -a install migrations shell "$pkgdir/usr/share/omarchy/"
+  install -Dm644 version "$pkgdir/usr/share/omarchy/version"
+
+  # New users start with every migration that exists now marked done, as
+  # upstream does. Existing users are seeded by omarchy-artix-setup-user --switch.
+  install -d "$pkgdir/etc/skel/.local/state/omarchy/migrations"
+  local migration
+  for migration in migrations/*.sh; do
+    [[ -f $migration ]] && touch "$pkgdir/etc/skel/.local/state/omarchy/migrations/${migration##*/}"
+  done
+}
+
+# /etc files from the upstream tree, sorted into what ships and what doesn't.
+# An allowlist on purpose: upstream adds /etc files often, and most new ones are
+# systemd drop-ins. A file in neither list fails the build, so each PIN bump
+# that adds one gets a decision instead of shipping by default.
+_etc_ship=(
+  etc/docker/daemon.json
+  etc/fastfetch/config.jsonc
+  etc/gnupg/dirmngr.conf
+  etc/mise/conf.d/omarchy-agent-accounts.toml
+  etc/mise/conf.d/omarchy.toml
+  etc/mise/conf.d/omarchy-tools.toml
+  etc/modprobe.d/omarchy-usb-autosuspend.conf
+  etc/mpv/mpv.conf
+  etc/NetworkManager/conf.d/omarchy-wifi-powersave.conf
+  etc/profile.d/omarchy.sh
+  etc/sudoers.d/omarchy-dns
+  etc/sudoers.d/omarchy-locale-generate
+  etc/sudoers.d/omarchy-passwd-tries
+  etc/sudoers.d/omarchy-theme-browser
+  etc/sysctl.d/90-omarchy-arp.conf
+  etc/sysctl.d/90-omarchy-file-watchers.conf
+  etc/udev/rules.d/60-omarchy-io-scheduler.rules
+  etc/xdg/kitty/kitty.conf
+  etc/xkb/rules/evdev
+  etc/xkb/symbols/omarchy
+)
+# Left out, with the reason:
+#   cups/*, nsswitch.conf, security/faillock.conf, plymouth/plymouthd.conf
+#       upstream force-copies these over files Artix packages own (etc-overrides)
+#   mkinitcpio.conf.d/*   Artix uses mkinitcpio, so these would apply: they add
+#                         plymouth and btrfs-overlayfs hooks these boxes lack
+#   limine-entry-tool.d/* x86 limine boot stack
+#   sddm.conf.d/*         10-wayland switches sddm to a Hyprland greeter; the
+#                         theme ships below, so 10-theme is a one-line opt-in
+#   sudoers.d/omarchy-tzupdate  names timedatectl, which is systemd
+#   sysctl.d/99-omarchy-sysctl.conf  swappiness=150 and friends, tuned for zram
+#   systemd/**            does nothing under dinit, and its presence makes
+#                         patch 0038 think systemd-resolved exists
+#   sysusers.d/*          only for the cups override
+#   tmpfiles.d/omarchy-nopasswd-sudo.conf  patch 0002's sweep does this job
+#   tmpfiles.d/omarchy-zswap.conf          zswap off is part of the zram setup
+_etc_skip_re='^etc/(cups/|nsswitch\.conf$|security/faillock\.conf$|plymouth/|mkinitcpio\.conf\.d/|limine-entry-tool\.d/|sddm\.conf\.d/|sudoers\.d/omarchy-tzupdate$|sysctl\.d/99-omarchy-sysctl\.conf$|systemd/|sysusers\.d/|tmpfiles\.d/(omarchy-nopasswd-sudo|omarchy-zswap)\.conf$)'
+
+package_omarchy-settings() {
+  pkgdesc='Omarchy for Artix: default configs, /etc/skel, fonts, icons and themes for the greeter and boot splash'
+  depends=('bash' 'curl' 'gum' 'sudo' 'hicolor-icon-theme')
+  # Dropped from upstream: plymouth (no boot splash here), and the install
+  # scriptlet, whose job is the etc-overrides and the revoke-hook handover.
+  optdepends=(
+    'inxi: system information for omarchy-debug'
+    'fastfetch: system information for omarchy-upload-log'
+  )
+  backup=(
+    'etc/fastfetch/config.jsonc'
+    'etc/docker/daemon.json'
+    'etc/gnupg/dirmngr.conf'
+    'etc/sysctl.d/90-omarchy-arp.conf'
+    'etc/sysctl.d/90-omarchy-file-watchers.conf'
+    'etc/udev/rules.d/60-omarchy-io-scheduler.rules'
+    'etc/modprobe.d/omarchy-usb-autosuspend.conf'
+  )
+
+  cd "$srcdir/omarchy"
+
+  local f unknown=()
+  while IFS= read -r f; do
+    f=${f#./}
+    if printf '%s\n' "${_etc_ship[@]}" | grep -qxF "$f"; then continue; fi
+    [[ $f =~ $_etc_skip_re ]] && continue
+    unknown+=("$f")
+  done < <(find etc -type f | sort)
+  if (( ${#unknown[@]} )); then
+    printf 'unclassified upstream /etc file: %s\n' "${unknown[@]}" >&2
+    echo "add each to _etc_ship or _etc_skip_re in this PKGBUILD" >&2
+    return 1
+  fi
+  for f in "${_etc_ship[@]}"; do
+    install -Dm644 "$f" "$pkgdir/$f"
+  done
+  chmod 0750 "$pkgdir/etc/sudoers.d"
+  chmod 0440 "$pkgdir/etc/sudoers.d"/*
+
+  # Default user config: seeds new users through /etc/skel, and is the source
+  # omarchy-refresh-config and omarchy-reinstall-configs copy from.
+  install -d "$pkgdir/etc/skel/.config" "$pkgdir/usr/share/omarchy/config"
+  cp -a config/. "$pkgdir/etc/skel/.config/"
+  cp -a config/. "$pkgdir/usr/share/omarchy/config/"
+  install -d "$pkgdir/usr/share/omarchy/default"
+  cp -a default/. "$pkgdir/usr/share/omarchy/default/"
+
+  # Defaults with real system locations. Left out: uwsm env.d (omarchy-artix-
+  # session sets the environment itself), environment.d (systemd), every
+  # systemd unit and drop-in (omarchy-artix ships dinit translations).
+  install -Dm644 default/fontconfig/conf.avail/50-omarchy.conf "$pkgdir/usr/share/fontconfig/conf.avail/50-omarchy.conf"
+  install -d "$pkgdir/etc/fonts/conf.d"
+  ln -sfn /usr/share/fontconfig/conf.avail/50-omarchy.conf "$pkgdir/etc/fonts/conf.d/50-omarchy.conf"
+  if [[ -d default/alsa/ucm2 ]]; then
+    install -d "$pkgdir/usr/share/alsa/ucm2"
+    cp -a default/alsa/ucm2/. "$pkgdir/usr/share/alsa/ucm2/"
+  fi
+  install -Dm644 default/xdg-terminal-exec/hyprland-xdg-terminals.list "$pkgdir/usr/share/xdg-terminal-exec/hyprland-xdg-terminals.list"
+  install -Dm644 default/applications/mimeapps.list "$pkgdir/usr/share/applications/mimeapps.list"
+
+  install -d "$pkgdir/usr/share/omarchy/applications" "$pkgdir/etc/skel/.local/share/applications"
+  cp -a applications/. "$pkgdir/usr/share/omarchy/applications/"
+  rm -rf "$pkgdir/usr/share/omarchy/applications/icons"
+  compgen -G 'applications/*.desktop' >/dev/null && cp applications/*.desktop "$pkgdir/etc/skel/.local/share/applications/"
+  compgen -G 'applications/hidden/*.desktop' >/dev/null && cp applications/hidden/*.desktop "$pkgdir/etc/skel/.local/share/applications/"
+  local icon icon_name icon_id
+  for icon in applications/icons/*; do
+    [[ -f $icon ]] || continue
+    icon_name=${icon##*/}
+    icon_id=$(printf '%s\n' "${icon_name%.*}" | tr '[:upper:]' '[:lower:]' | sed 's/[^[:alnum:]]\+/-/g; s/^-//; s/-$//')
+    case $icon_name in
+      *.svg) install -Dm644 "$icon" "$pkgdir/usr/share/icons/hicolor/scalable/apps/$icon_id.svg" ;;
+      *)
+        install -d "$pkgdir/usr/share/icons/hicolor/256x256/apps" "$pkgdir/usr/share/icons/hicolor/48x48/apps"
+        magick "$icon" -thumbnail 256x256 -background transparent -gravity center -extent 256x256 "PNG32:$pkgdir/usr/share/icons/hicolor/256x256/apps/$icon_id.png"
+        magick "$icon" -thumbnail 48x48 -background transparent -gravity center -extent 48x48 "PNG32:$pkgdir/usr/share/icons/hicolor/48x48/apps/$icon_id.png"
+        ;;
+    esac
+  done
+
+  # Greeter and boot-splash themes: assets only, nothing switched on.
+  install -d -m 0755 "$pkgdir/usr/share/sddm/themes" "$pkgdir/usr/share/plymouth/themes/omarchy"
+  cp -a default/sddm/omarchy "$pkgdir/usr/share/sddm/themes/"
+  cp -a default/plymouth/. "$pkgdir/usr/share/plymouth/themes/omarchy/"
+  find "$pkgdir/usr/share/sddm/themes/omarchy" "$pkgdir/usr/share/plymouth/themes/omarchy" -type d -exec chmod 0755 {} +
+  find "$pkgdir/usr/share/sddm/themes/omarchy" "$pkgdir/usr/share/plymouth/themes/omarchy" -type f -exec chmod 0644 {} +
+
+  install -Dm644 default/fonts/omarchy/omarchy.ttf "$pkgdir/usr/share/fonts/omarchy/omarchy.ttf"
+
+  # Branding. logo-omarchy.txt is patch 0036's: the screensaver can switch
+  # between the OMARTIX wordmark (logo.txt) and the original.
+  install -Dm644 logo.txt "$pkgdir/usr/share/omarchy/logo.txt"
+  [[ ! -f logo-omarchy.txt ]] || install -Dm644 logo-omarchy.txt "$pkgdir/usr/share/omarchy/logo-omarchy.txt"
+  install -Dm644 logo.svg "$pkgdir/usr/share/omarchy/logo.svg"
+  install -Dm644 icon.txt "$pkgdir/usr/share/omarchy/icon.txt"
+  install -Dm644 icon.png "$pkgdir/usr/share/omarchy/icon.png"
+  install -Dm644 icon.png "$pkgdir/usr/share/pixmaps/omarchy.png"
+  install -Dm644 icon.png "$pkgdir/usr/share/icons/hicolor/256x256/apps/omarchy.png"
+  install -Dm644 logo.txt "$pkgdir/etc/skel/.config/omarchy/branding/screensaver.txt"
+  install -Dm644 icon.txt "$pkgdir/etc/skel/.config/omarchy/branding/about.txt"
+
+  install -Dm644 default/hypr/toggles/flags.lua "$pkgdir/etc/skel/.local/state/omarchy/toggles/hypr/flags.lua"
+  install -Dm644 default/nautilus-python/extensions/localsend.py "$pkgdir/etc/skel/.local/share/nautilus-python/extensions/localsend.py"
+  install -Dm644 default/nautilus-python/extensions/transcode.py "$pkgdir/etc/skel/.local/share/nautilus-python/extensions/transcode.py"
+  install -Dm644 default/tensaku/state.toml "$pkgdir/etc/skel/.local/state/tensaku/state.toml"
+
+  install -Dm755 bin/omarchy-upload-log "$pkgdir/usr/bin/omarchy-upload-log"
+  install -Dm755 bin/omarchy-debug "$pkgdir/usr/bin/omarchy-debug"
+  install -Dm755 bin/omarchy-debug-idle "$pkgdir/usr/bin/omarchy-debug-idle"
+}
