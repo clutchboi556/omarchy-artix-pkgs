@@ -47,7 +47,11 @@ mkdir -p "$OUT/publish" "$OUT/current"
 : >"$OUT/stale"; : >"$OUT/failed"
 
 inroot() { chroot "$ROOT" /usr/bin/env -i PATH=/usr/bin HOME=/root LANG=C.UTF-8 TERM=dumb "$@"; }
+# MAKEPKG_GIT_CONFIG: makepkg (7.x) clones with GIT_CONFIG_GLOBAL=/dev/null and
+# reads only this file, so the omarchy-artix token rule below must live here,
+# not in ~/.gitconfig. A missing file is fine.
 asbuilder() { chroot "$ROOT" /usr/bin/env -i PATH=/usr/bin HOME=/home/builder LANG=C.UTF-8 TERM=dumb \
+  MAKEPKG_GIT_CONFIG=/home/builder/makepkg-gitconfig \
   /usr/bin/setpriv --reuid=builder --regid=builder --init-groups -- /bin/bash -c "$1"; }
 
 # ── 1. the build root ──────────────────────────────────────────────────────
@@ -107,13 +111,15 @@ artix_token=${artix_token//[[:space:]]/}
 if [[ -n $artix_token ]]; then
   echo "omarchy-artix token: present (${#artix_token} chars)"
   umask_was=$(umask); umask 077
-  printf '[url "https://x-access-token:%s@github.com/clutchboi556/omarchy-artix.git"]\n\tinsteadOf = https://github.com/clutchboi556/omarchy-artix.git\n' \
-    "$artix_token" >"$ROOT/home/builder/.gitconfig"
+  # Keep makepkg's own default config by including it.
+  printf '[include]\n\tpath = /etc/makepkg.d/gitconfig\n[url "https://x-access-token:%s@github.com/clutchboi556/omarchy-artix.git"]\n\tinsteadOf = https://github.com/clutchboi556/omarchy-artix.git\n' \
+    "$artix_token" >"$ROOT/home/builder/makepkg-gitconfig"
   umask "$umask_was"
-  inroot chown builder:builder /home/builder/.gitconfig
+  inroot chown builder:builder /home/builder/makepkg-gitconfig
   # Fail here, in one readable line, rather than as two recipes that "could
   # not read Username" much later.
-  if asbuilder "git ls-remote https://github.com/clutchboi556/omarchy-artix.git HEAD >/dev/null"; then
+  # Checked the way makepkg will read it: no global config, ours as the system one.
+  if asbuilder 'GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=$MAKEPKG_GIT_CONFIG git ls-remote https://github.com/clutchboi556/omarchy-artix.git HEAD >/dev/null'; then
     echo "omarchy-artix token: can read clutchboi556/omarchy-artix"
   else
     echo "::error::OMARCHY_ARTIX_TOKEN cannot read clutchboi556/omarchy-artix (expired, or missing Contents: Read-only on that repo?)"
