@@ -9,6 +9,7 @@
 #   the "Omarchy (Artix)" session entry                     -> /usr/share/wayland-sessions
 #   pam, profile.d, limits.d, the dinit shutdown hook       -> /etc
 #   the default monospace fontconfig rule                   -> /etc/fonts/conf.d
+#   libalpm/hooks/*.hook (the unsigned-repo pacman guard)  -> /usr/share/libalpm/hooks
 #   dinit service templates, plugins, libs, migrations.skip -> /usr/share/omarchy-artix
 # The dinit service descriptions themselves are rendered into /etc/dinit.d by
 # omarchy-artix-render-services from the install scriptlet and a pacman hook,
@@ -106,4 +107,9 @@ package() {
 XML
 
   install -Dm644 "$srcdir/omarchy-artix-services.hook" "$pkgdir/usr/share/libalpm/hooks/omarchy-artix-services.hook"
+  # Hooks kept in the omarchy-artix repo itself (05-omarchy-artix-unsigned-guard
+  # and later ones), so adding one needs no change here.
+  for f in libalpm/hooks/*.hook; do
+    [[ -f $f ]] && install -Dm644 "$f" "$pkgdir/usr/share/libalpm/hooks/${f##*/}"
+  done
 }
