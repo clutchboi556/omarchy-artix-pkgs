@@ -22,6 +22,16 @@ trap 'rm -rf "$work"' EXIT
 gh release download "$FROM_TAG" -D "$work/in" -p "$FROM.db" -p "$FROM.db.sig" -p "$FROM.files" -p "$FROM.files.sig"
 [[ -s $work/in/$FROM.db.sig ]] || { echo "::error::$FROM_TAG has no signed database; refusing to promote" >&2; exit 1; }
 
+# EXPECT ("aarch64=<sha256>,x86_64=<sha256>") pins the testing snapshot the
+# promoter actually tried. A build that lands between their check and this run
+# changes the db, and promoting it would ship something nobody ran.
+want=$(tr ',' '\n' <<<"${EXPECT:-}" | sed -n "s/^[[:space:]]*$ARCH=//p")
+if [[ -n $want ]]; then
+  got=$(sha256sum "$work/in/$FROM.db" | cut -d' ' -f1)
+  [[ $got == "$want" ]] || { echo "::error::$FROM_TAG changed since it was checked (db $got, expected $want); refusing to promote" >&2; exit 1; }
+  echo "testing db matches the checked snapshot ($got)"
+fi
+
 mkdir -p "$work/db" "$work/out"
 tar -xf "$work/in/$FROM.db" -C "$work/db"
 mapfile -t files < <(sed -n '/^%FILENAME%$/{n;p}' "$work"/db/*/desc | sort -u)

@@ -10,6 +10,12 @@ on:
         type: choice
         options: [both, aarch64, x86_64]
         default: both
+      expect:
+        description: >-
+          Optional "aarch64=<sha256>,x86_64=<sha256>" of the testing databases
+          the promoter tried; an arch whose db no longer matches is refused
+        type: string
+        default: ""
 
 permissions:
   contents: write
@@ -27,6 +33,7 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       ARCH: ${{ matrix.arch }}
+      EXPECT: ${{ inputs.expect }}
     steps:
       - uses: actions/checkout@v4
         if: inputs.arch == 'both' || inputs.arch == matrix.arch
