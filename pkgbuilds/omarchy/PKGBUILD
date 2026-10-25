@@ -48,7 +48,7 @@ _since=86
 _artix_commit=c011c9d1f42e2a211d0310157923af51acd54866
 _series=184
 pkgver=${_tag}.r${_since}.g${_commit:0:7}.a${_series}
-pkgrel=1
+pkgrel=2
 pkgdesc='Omarchy for Artix: upstream at the omarchy-artix PIN plus the Artix patch series'
 arch=('x86_64' 'aarch64')
 url='https://github.com/clutchboi556/omarchy-artix'
@@ -190,6 +190,7 @@ _etc_ship=(
   etc/mise/conf.d/omarchy-tools.toml
   etc/modprobe.d/omarchy-usb-autosuspend.conf
   etc/mpv/mpv.conf
+  etc/NetworkManager/conf.d/omarchy-connectivity.conf
   etc/NetworkManager/conf.d/omarchy-wifi-powersave.conf
   etc/profile.d/omarchy.sh
   etc/sudoers.d/omarchy-dns
@@ -237,6 +238,7 @@ package_omarchy-settings() {
     'etc/sysctl.d/90-omarchy-file-watchers.conf'
     'etc/udev/rules.d/60-omarchy-io-scheduler.rules'
     'etc/modprobe.d/omarchy-usb-autosuspend.conf'
+    'etc/NetworkManager/conf.d/omarchy-connectivity.conf'
   )
 
   cd "$srcdir/omarchy"
