@@ -192,6 +192,8 @@ _etc_ship=(
   etc/mpv/mpv.conf
   etc/NetworkManager/conf.d/omarchy-connectivity.conf
   etc/NetworkManager/conf.d/omarchy-wifi-powersave.conf
+  etc/pipewire/client.conf.d/50-omarchy-rtkit.conf
+  etc/pipewire/jack.conf.d/50-omarchy-rtkit.conf
   etc/profile.d/omarchy.sh
   etc/sudoers.d/omarchy-dns
   etc/sudoers.d/omarchy-locale-generate
