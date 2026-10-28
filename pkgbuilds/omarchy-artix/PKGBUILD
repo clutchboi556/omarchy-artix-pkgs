@@ -25,8 +25,8 @@
 # Local build: OMARCHY_ARTIX_SRC=<omarchy-artix working tree> (copied as-is)
 # ⚠ omarchy-artix is a PRIVATE repo; CI needs a token to fetch it.
 pkgname=omarchy-artix
-_commit=d2677c30a6185bcf592c7da3dcd2aed12d705cb9
-_count=215
+_commit=eab0535ce0c18f4479db4a55d6390e383d3b479d
+_count=216
 pkgver=0.r${_count}.g${_commit:0:7}
 pkgrel=1
 pkgdesc='Artix integration for Omarchy: dinit services, systemd and uwsm shims, session entry'
