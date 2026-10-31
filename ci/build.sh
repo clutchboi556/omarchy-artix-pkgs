@@ -151,7 +151,7 @@ mkdir -p "$ROOT/home/builder/build"
 git clone -q --depth 1 --branch master "$OMARCHY_PKGS" /tmp/omarchy-pkgs
 echo "omarchy-pkgs at $(git -C /tmp/omarchy-pkgs rev-parse --short HEAD)"
 wanted=()
-declare -A NOCHECK=()
+declare -A NOCHECK=() AHEAD=()
 while read -r src name arches opts; do
   [[ -z $src || $src == \#* ]] && continue
   # third column: the arches to build it for, comma-separated; default aarch64
@@ -159,6 +159,8 @@ while read -r src name arches opts; do
   # fourth column: nocheck builds without the recipe's test step, and so
   # without its checkdepends
   [[ ,${opts:-}, == *,nocheck,* ]] && NOCHECK[$name]=1
+  # ahead: carried only while the recipe is newer than the distro's own build
+  [[ ,${opts:-}, == *,ahead,* ]] && AHEAD[$name]=1
   dst=$ROOT/home/builder/build/$name
   case $src in
     omarchy) cp -a "/tmp/omarchy-pkgs/pkgbuilds/$name" "$dst" ;;
@@ -201,10 +203,23 @@ for name in "${wanted[@]}"; do
   srcinfo=$(asbuilder "cd ~/build/$name && makepkg --printsrcinfo")
   field() { sed -n "s/^\t$1 = //p" <<<"$srcinfo" | head -1; }
   mapfile -t pkgs < <(sed -n 's/^pkgname = //p' <<<"$srcinfo")
-  wanted_pkgs+=("${pkgs[@]}")
   # A split recipe (dotnet-core-bin) publishes under its package names, never
   # its base name, so compare against the first of them.
   ver=$(field pkgver)-$(field pkgrel); ep=$(field epoch); [[ -n $ep ]] && ver=$ep:$ver
+  # ahead: once the distro's version (pkgver only -- pkgrels from two distros
+  # don't compare) has caught up, skip the build. Leaving it out of
+  # wanted_pkgs also drops our copy from the index, so boxes go back to the
+  # distro's build.
+  if [[ -n ${AHEAD[$name]:-} ]]; then
+    distro=$(inroot pacman -Sl | awk -v n="${pkgs[0]}" -v r="$REPO" \
+      '$2 == n && $1 != "localbuild" && $1 != r { print $3; exit }')
+    if [[ -n $distro ]] && (( $(inroot vercmp "${distro%-*}" "${ver%-*}") >= 0 )); then
+      echo "$name $ver: distro has $distro, not carried${PUBVER[${pkgs[0]}]:+ (dropping ours from the index)}"
+      continue
+    fi
+    echo "$name $ver: ahead of the distro's ${distro:-(none)}"
+  fi
+  wanted_pkgs+=("${pkgs[@]}")
   if [[ ${FORCE:-false} != true && ${PUBVER[${pkgs[0]}]:-} == "$ver" ]]; then
     echo "$name $ver: already published"
     continue
