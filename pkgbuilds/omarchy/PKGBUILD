@@ -198,6 +198,7 @@ _etc_ship=(
   etc/sudoers.d/omarchy-dns
   etc/sudoers.d/omarchy-locale-generate
   etc/sudoers.d/omarchy-passwd-tries
+  etc/sudoers.d/omarchy-sudo-timeout
   etc/sudoers.d/omarchy-theme-browser
   etc/sysctl.d/90-omarchy-arp.conf
   etc/sysctl.d/90-omarchy-file-watchers.conf
