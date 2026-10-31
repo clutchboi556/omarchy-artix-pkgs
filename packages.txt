@@ -8,10 +8,12 @@
 #                          OPTIONS: nocheck builds without the recipe's test
 #                          step, for one whose tests need a package no repo
 #                          here carries. Say why beside the entry.
-#                          ahead builds it only while its version is newer
-#                          than the distro's own; once the distro catches up
-#                          it is skipped and dropped from the repo, and boxes
-#                          go back to the distro's build.
+#                          ahead=GROUP carries a group of recipes only while
+#                          any member's version is newer than the distro's
+#                          own, and then carries every member, so they stay
+#                          built against each other. Once the whole group has
+#                          caught up it is skipped and dropped from the repo,
+#                          and boxes go back to the distro's builds.
 #
 #   omarchy NAME   pkgbuilds/NAME from omacom/omarchy-pkgs (branch master, latest
 #                  at build time -- omarchy's own recipes, which already declare
@@ -62,5 +64,8 @@ omarchy omarchy-themes-intros aarch64,x86_64
 local   omarchy aarch64,x86_64
 # Omarchy follows Arch's Hyprland the day it lands; Artix and Armtix can be
 # days behind, and new config keys then show as errors (0.57's misc.bell_sound,
-# 2026-10-31). Only hyprland lagged; its libraries match Arch's.
-arch    hyprland aarch64,x86_64 ahead
+# 2026-10-31). hyprutils and aquamarine ride along so a Hyprland that needs
+# newer ones gets them from us too. Build order: hyprutils, aquamarine, hyprland.
+arch    hyprutils aarch64,x86_64 ahead=hypr
+arch    aquamarine aarch64,x86_64 ahead=hypr
+arch    hyprland aarch64,x86_64 ahead=hypr

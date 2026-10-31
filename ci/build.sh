@@ -159,8 +159,8 @@ while read -r src name arches opts; do
   # fourth column: nocheck builds without the recipe's test step, and so
   # without its checkdepends
   [[ ,${opts:-}, == *,nocheck,* ]] && NOCHECK[$name]=1
-  # ahead: carried only while the recipe is newer than the distro's own build
-  [[ ,${opts:-}, == *,ahead,* ]] && AHEAD[$name]=1
+  # ahead=GROUP: carried only while the group is ahead of the distro (step 4)
+  [[ ,${opts:-}, =~ ,ahead=([^,]+), ]] && AHEAD[$name]=${BASH_REMATCH[1]}
   dst=$ROOT/home/builder/build/$name
   case $src in
     omarchy) cp -a "/tmp/omarchy-pkgs/pkgbuilds/$name" "$dst" ;;
@@ -172,7 +172,9 @@ while read -r src name arches opts; do
       echo "$name: archlinux/packaging at $(git -C "$dst" rev-parse --short HEAD)"
       rm -rf "$dst/.git"
       grep -Eq "^arch=\(.*(any|$ARCH)" "$dst/PKGBUILD" \
-        || sed -i -E "s/^arch=\((.*)\)/arch=(\1 '$ARCH')/" "$dst/PKGBUILD" ;;
+        || sed -i -E "s/^arch=\((.*)\)/arch=(\1 '$ARCH')/" "$dst/PKGBUILD"
+      # Artix ships libudev.so in libudev, not systemd-libs.
+      sed -i -E 's/(^|[ (])systemd-libs([ )]|$)/\1libudev\2/g' "$dst/PKGBUILD" ;;
     *) echo "unknown source '$src' for $name" >&2; echo "$name" >>"$OUT/failed"; continue ;;
   esac
   wanted+=("$name")
@@ -184,17 +186,41 @@ echo "::endgroup::"
 # packages) must be installable by `makepkg -s`, which only resolves from sync
 # repos. Two repos inside the build root, never on a box: [localbuild] holds
 # what this run built (so order in packages.txt is build order), and the
-# published release holds everything built before.
+# published release holds everything built before. Both go BEFORE the distro's
+# repos, as on the boxes: pacman takes a package from the first repo that has
+# it, and an ahead package (hyprland) must build against our hyprutils, not
+# the distro's older one.
 mkdir -p "$ROOT/localrepo"
 tar -czf "$ROOT/localrepo/localbuild.db.tar.gz" -T /dev/null
 ln -sf localbuild.db.tar.gz "$ROOT/localrepo/localbuild.db"
 if ! grep -q '^\[localbuild\]' "$ROOT/etc/pacman.conf"; then
-  printf '\n[localbuild]\nSigLevel = Never\nServer = file:///localrepo\n' >>"$ROOT/etc/pacman.conf"
-  if [[ -s $OUT/current/$REPO.db.tar.gz ]]; then
-    printf '\n[%s]\nSigLevel = Never\nServer = %s\n' "$REPO" "$PUBLISHED" >>"$ROOT/etc/pacman.conf"
-  fi
+  ours=$(printf '[localbuild]\nSigLevel = Never\nServer = file:///localrepo\n\n'
+    if [[ -s $OUT/current/$REPO.db.tar.gz ]]; then printf '[%s]\nSigLevel = Never\nServer = %s\n\n' "$REPO" "$PUBLISHED"; fi)
+  awk -v ours="$ours" '!done && /^\[/ && !/^\[options\]/ { print ours; print ""; done=1 } { print }' \
+    "$ROOT/etc/pacman.conf" >"$ROOT/etc/pacman.conf.new"
+  mv "$ROOT/etc/pacman.conf.new" "$ROOT/etc/pacman.conf"
 fi
 inroot pacman -Sy --noconfirm >/dev/null
+
+# ahead groups: a group is carried while ANY member's pkgver (pkgrels from two
+# distros don't compare) is newer than the distro's, and then every member is
+# carried, so hyprland is never mixed with a distro hyprutils it wasn't built
+# against. Once the whole group has caught up it is skipped, and leaving it out
+# of wanted_pkgs drops our copies from the index, so boxes go back to the
+# distro's builds.
+declare -A RECIPEVER=() DISTROVER=() GROUP_ON=()
+for name in "${!AHEAD[@]}"; do
+  srcinfo=$(asbuilder "cd ~/build/$name && makepkg --printsrcinfo")
+  first=$(sed -n 's/^pkgname = //p' <<<"$srcinfo" | head -1)
+  v=$(sed -n 's/^\tpkgver = //p' <<<"$srcinfo" | head -1); ep=$(sed -n 's/^\tepoch = //p' <<<"$srcinfo" | head -1)
+  RECIPEVER[$name]=${ep:+$ep:}$v
+  DISTROVER[$name]=$(inroot pacman -Sl | awk -v n="$first" -v r="$REPO" \
+    '$2 == n && $1 != "localbuild" && $1 != r { v = $3; sub(/-[^-]*$/, "", v); print v; exit }')
+  if [[ -z ${DISTROVER[$name]} ]] || (( $(inroot vercmp "${DISTROVER[$name]}" "${RECIPEVER[$name]}") < 0 )); then
+    GROUP_ON[${AHEAD[$name]}]=1
+  fi
+  echo "ahead group ${AHEAD[$name]}: $name ${RECIPEVER[$name]}, distro ${DISTROVER[$name]:-(none)}"
+done
 
 # ── 4. build what is new ───────────────────────────────────────────────────
 built=()
@@ -206,18 +232,15 @@ for name in "${wanted[@]}"; do
   # A split recipe (dotnet-core-bin) publishes under its package names, never
   # its base name, so compare against the first of them.
   ver=$(field pkgver)-$(field pkgrel); ep=$(field epoch); [[ -n $ep ]] && ver=$ep:$ver
-  # ahead: once the distro's version (pkgver only -- pkgrels from two distros
-  # don't compare) has caught up, skip the build. Leaving it out of
-  # wanted_pkgs also drops our copy from the index, so boxes go back to the
-  # distro's build.
+  # ahead group caught up (see above): not carried. A member whose distro
+  # build is strictly newer than Arch's recipe is never carried either, or our
+  # repo, listed first on the boxes, would hide the newer one.
   if [[ -n ${AHEAD[$name]:-} ]]; then
-    distro=$(inroot pacman -Sl | awk -v n="${pkgs[0]}" -v r="$REPO" \
-      '$2 == n && $1 != "localbuild" && $1 != r { print $3; exit }')
-    if [[ -n $distro ]] && (( $(inroot vercmp "${distro%-*}" "${ver%-*}") >= 0 )); then
-      echo "$name $ver: distro has $distro, not carried${PUBVER[${pkgs[0]}]:+ (dropping ours from the index)}"
+    g=${AHEAD[$name]} d=${DISTROVER[$name]}
+    if [[ -z ${GROUP_ON[$g]:-} ]] || { [[ -n $d ]] && (( $(inroot vercmp "$d" "${RECIPEVER[$name]}") > 0 )); }; then
+      echo "$name $ver: distro has ${d:-(none)}, not carried${PUBVER[${pkgs[0]}]:+ (dropping ours from the index)}"
       continue
     fi
-    echo "$name $ver: ahead of the distro's ${distro:-(none)}"
   fi
   wanted_pkgs+=("${pkgs[@]}")
   if [[ ${FORCE:-false} != true && ${PUBVER[${pkgs[0]}]:-} == "$ver" ]]; then
