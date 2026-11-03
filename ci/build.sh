@@ -225,6 +225,7 @@ done
 # ── 4. build what is new ───────────────────────────────────────────────────
 built=()
 wanted_pkgs=()   # every package name the recipes produce (split packages too)
+declare -A RECIPEPKGS=()
 for name in "${wanted[@]}"; do
   srcinfo=$(asbuilder "cd ~/build/$name && makepkg --printsrcinfo")
   field() { sed -n "s/^\t$1 = //p" <<<"$srcinfo" | head -1; }
@@ -243,6 +244,7 @@ for name in "${wanted[@]}"; do
     fi
   fi
   wanted_pkgs+=("${pkgs[@]}")
+  RECIPEPKGS[$name]="${pkgs[*]}"
   if [[ ${FORCE:-false} != true && ${PUBVER[${pkgs[0]}]:-} == "$ver" ]]; then
     echo "$name $ver: already published"
     continue
@@ -259,6 +261,24 @@ for name in "${wanted[@]}"; do
     echo "$name" >>"$OUT/failed"
   fi
   echo "::endgroup::"
+done
+
+# An ahead group is all or nothing: if any member failed, none of it is
+# published and our earlier copies leave the index, so boxes fall back to the
+# distro's matching set. (2026-11-02: aquamarine 0.16 went out without the
+# hyprland/hyprtoolkit built against it, and pacman -Syu refused the update.)
+declare -A GROUP_FAILED=()
+while read -r f; do [[ -n ${AHEAD[$f]:-} ]] && GROUP_FAILED[${AHEAD[$f]}]=1; done <"$OUT/failed"
+for g in "${!GROUP_FAILED[@]}"; do
+  drop=()
+  for name in "${!AHEAD[@]}"; do [[ ${AHEAD[$name]} == "$g" ]] && drop+=("$name"); done
+  echo "::error::ahead group $g incomplete; not publishing: ${drop[*]}"
+  for name in "${drop[@]}"; do
+    built=($(printf '%s\n' "${built[@]}" | grep -vx "$name" || true))
+    for pk in ${RECIPEPKGS[$name]:-}; do
+      wanted_pkgs=($(printf '%s\n' "${wanted_pkgs[@]}" | grep -vx "$pk" || true))
+    done
+  done
 done
 
 # ── 5. sign, index, stage ──────────────────────────────────────────────────

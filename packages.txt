@@ -65,7 +65,10 @@ local   omarchy aarch64,x86_64
 # Omarchy follows Arch's Hyprland the day it lands; Artix and Armtix can be
 # days behind, and new config keys then show as errors (0.57's misc.bell_sound,
 # 2026-10-31). hyprutils and aquamarine ride along so a Hyprland that needs
-# newer ones gets them from us too. Build order: hyprutils, aquamarine, hyprland.
+# newer ones gets them from us too, and hyprtoolkit links aquamarine as well
+# (aquamarine 0.16's soname bump, 2026-11-02). Build order: hyprutils,
+# aquamarine, hyprtoolkit, hyprland.
 arch    hyprutils aarch64,x86_64 ahead=hypr
 arch    aquamarine aarch64,x86_64 ahead=hypr
+arch    hyprtoolkit aarch64,x86_64 ahead=hypr
 arch    hyprland aarch64,x86_64 ahead=hypr
