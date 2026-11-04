@@ -51,12 +51,26 @@ jobs:
           gh release download "$TAG" -D out/current \
             -p 'omartix-testing.db.tar.gz' -p 'omartix-testing.files.tar.gz' || true
 
+      # aarch64 only: Armtix's reachable mirror refuses GitHub's runners
+      # (Cloudflare 403), so join the tailnet as an ephemeral tag:ci node and
+      # pull from our mirror on pve2. The tailnet policy lets tag:ci reach that
+      # mirror on port 80 and nothing else. Skipped until vars.ARMTIX_MIRROR is set.
+      - name: Join the tailnet
+        if: matrix.arch == 'aarch64' && vars.ARMTIX_MIRROR != ''
+        continue-on-error: true
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
       - name: Build
         env:
+          ARMTIX_MIRROR: ${{ vars.ARMTIX_MIRROR }}
           PKG_SIGNING_KEY: ${{ secrets.PKG_SIGNING_KEY }}
           OMARCHY_ARTIX_TOKEN: ${{ secrets.OMARCHY_ARTIX_TOKEN }}
           FORCE: ${{ inputs.force || 'false' }}
-        run: sudo --preserve-env=PKG_SIGNING_KEY,OMARCHY_ARTIX_TOKEN,FORCE,TAG ci/build.sh
+        run: sudo --preserve-env=PKG_SIGNING_KEY,OMARCHY_ARTIX_TOKEN,FORCE,TAG,ARMTIX_MIRROR ci/build.sh
 
       - name: Publish
         run: sudo chown -R "$USER" out && ci/publish.sh

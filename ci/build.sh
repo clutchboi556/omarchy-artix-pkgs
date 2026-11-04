@@ -30,6 +30,21 @@ OUT=${OUT:-$HERE/out}
 #   the package mirrors below.
 IMAGE_MIRRORS=(https://armtixlinux.org/images https://armtix.artixlinux.org/images)
 PKG_MIRRORS=('https://repo.armtixlinux.org/$repo/os/$arch' 'https://armtix.artixlinux.org/repos/$repo/os/$arch')
+# ARMTIX_MIRROR: our own mirror (pve2 CT 117, omarchy-artix-mirror), reached
+#   over Tailscale when the workflow's tailnet step ran. It publishes only
+#   databases two Armtix mirrors agreed on, so its verified tier goes first;
+#   unreachable, the build falls back to Armtix as above. The image has no
+#   two-mirror record yet, so it comes from the unverified tier, checked
+#   against that mirror's sha256sums exactly as a direct download is.
+if [[ $ARCH == aarch64 && -n ${ARMTIX_MIRROR:-} ]]; then
+  if curl -fsS --max-time 20 -o /dev/null "$ARMTIX_MIRROR/status.json"; then
+    echo "Armtix: using $ARMTIX_MIRROR first"
+    IMAGE_MIRRORS=("$ARMTIX_MIRROR/unverified/images" "${IMAGE_MIRRORS[@]}")
+    PKG_MIRRORS=("$ARMTIX_MIRROR/verified/\$repo/os/\$arch" "${PKG_MIRRORS[@]}")
+  else
+    echo "Armtix: $ARMTIX_MIRROR did not answer; using Armtix's own mirrors"
+  fi
+fi
 # The repo CI publishes to. Every build lands in the TESTING channel; a box on
 # stable gets it only after ci/promote.sh copies that snapshot to omartix-<arch>.
 REPO=${REPO:-omartix-testing}
