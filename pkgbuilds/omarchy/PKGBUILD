@@ -202,6 +202,7 @@ _etc_ship=(
   etc/sudoers.d/omarchy-theme-browser
   etc/sysctl.d/90-omarchy-arp.conf
   etc/sysctl.d/90-omarchy-file-watchers.conf
+  etc/udev/rules.d/60-omarchy-hp-zbook-ultra-g3a-usb.rules
   etc/udev/rules.d/60-omarchy-io-scheduler.rules
   etc/xdg/kitty/kitty.conf
   etc/xkb/rules/evdev
