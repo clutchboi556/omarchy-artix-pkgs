@@ -42,11 +42,11 @@
 #   that exists, CI cannot build this recipe.
 pkgbase=omarchy
 pkgname=('omarchy' 'omarchy-settings')
-_commit=14abc0762ce38547d1912061969df58962f6f10a
+_commit=9044b7e8ea55ed6f443c14cbf93a2504aa248825
 _tag=4.5.0rc2
-_since=270
-_artix_commit=df8c38bd8933cd6a0b971a08f07234d4fb73da05
-_series=250
+_since=275
+_artix_commit=09cb15e62db1a4e44aadd117c85227b5fd383920
+_series=251
 pkgver=${_tag}.r${_since}.g${_commit:0:7}.a${_series}
 pkgrel=1
 pkgdesc='Omarchy for Artix: upstream at the omarchy-artix PIN plus the Artix patch series'
