@@ -19,8 +19,8 @@
 #
 # Local build without the network: OMARCHY_SRC=<git repo holding _commit>
 pkgname=omarchy-themes
-_commit=573b518be16ec47547d50fe6197bc7f53e982340
-pkgver=2026.10.29
+_commit=ccff668827bd23f3a16b8d9eeafabd83683d4fc4
+pkgver=2026.11.11
 pkgrel=1
 pkgdesc='Built-in themes for Omarchy on Artix'
 arch=('any')
