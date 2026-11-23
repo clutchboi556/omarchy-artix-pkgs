@@ -222,7 +222,11 @@ _etc_ship=(
 #   sysusers.d/*          only for the cups override
 #   tmpfiles.d/omarchy-nopasswd-sudo.conf  patch 0002's sweep does this job
 #   tmpfiles.d/omarchy-zswap.conf          zswap off is part of the zram setup
-_etc_skip_re='^etc/(cups/|nsswitch\.conf$|security/faillock\.conf$|plymouth/|mkinitcpio\.conf\.d/|limine-entry-tool\.d/|sddm\.conf\.d/|sudoers\.d/omarchy-tzupdate$|sysctl\.d/99-omarchy-sysctl\.conf$|systemd/|sysusers\.d/|tmpfiles\.d/(omarchy-nopasswd-sudo|omarchy-zswap)\.conf$)'
+#   tmpfiles.d/linux-modules-cleanup.conf  turns kernel-modules-hook's boot-time
+#                         R! of /usr/lib/modules/.old into an `e` rule left to
+#                         systemd-tmpfiles-clean.timer; dinit never runs a
+#                         --clean pass, so the old modules would pile up
+_etc_skip_re='^etc/(cups/|nsswitch\.conf$|security/faillock\.conf$|plymouth/|mkinitcpio\.conf\.d/|limine-entry-tool\.d/|sddm\.conf\.d/|sudoers\.d/omarchy-tzupdate$|sysctl\.d/99-omarchy-sysctl\.conf$|systemd/|sysusers\.d/|tmpfiles\.d/(omarchy-nopasswd-sudo|omarchy-zswap|linux-modules-cleanup)\.conf$)'
 
 package_omarchy-settings() {
   pkgdesc='Omarchy for Artix: default configs, /etc/skel, fonts, icons and themes for the greeter and boot splash'
