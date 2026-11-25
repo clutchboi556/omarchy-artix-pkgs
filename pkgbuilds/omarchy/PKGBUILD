@@ -185,7 +185,6 @@ _etc_ship=(
   etc/docker/daemon.json
   etc/fastfetch/config.jsonc
   etc/gnupg/dirmngr.conf
-  etc/mise/conf.d/omarchy-agent-accounts.toml
   etc/mise/conf.d/omarchy.toml
   etc/mise/conf.d/omarchy-tools.toml
   etc/modprobe.d/omarchy-usb-autosuspend.conf
