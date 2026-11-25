@@ -201,7 +201,6 @@ _etc_ship=(
   etc/sudoers.d/omarchy-theme-browser
   etc/sysctl.d/90-omarchy-arp.conf
   etc/sysctl.d/90-omarchy-file-watchers.conf
-  etc/udev/rules.d/60-omarchy-hp-zbook-ultra-g3a-usb.rules
   etc/udev/rules.d/60-omarchy-io-scheduler.rules
   etc/xdg/kitty/kitty.conf
   etc/xkb/rules/evdev
@@ -260,6 +259,17 @@ package_omarchy-settings() {
   if (( ${#unknown[@]} )); then
     printf 'unclassified upstream /etc file: %s\n' "${unknown[@]}" >&2
     echo "add each to _etc_ship or _etc_skip_re in this PKGBUILD" >&2
+    return 1
+  fi
+  # The other direction: upstream deleting a file we ship would otherwise die
+  # in the install loop below with a bare "cannot stat".
+  local gone=()
+  for f in "${_etc_ship[@]}"; do
+    [[ -f $f ]] || gone+=("$f")
+  done
+  if (( ${#gone[@]} )); then
+    printf 'upstream no longer has /etc file: %s\n' "${gone[@]}" >&2
+    echo "remove each from _etc_ship in this PKGBUILD" >&2
     return 1
   fi
   for f in "${_etc_ship[@]}"; do
