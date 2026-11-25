@@ -65,10 +65,17 @@ local   omarchy aarch64,x86_64
 # Omarchy follows Arch's Hyprland the day it lands; Artix and Armtix can be
 # days behind, and new config keys then show as errors (0.57's misc.bell_sound,
 # 2026-10-31). hyprutils and aquamarine ride along so a Hyprland that needs
-# newer ones gets them from us too, and hyprtoolkit links aquamarine as well
-# (aquamarine 0.16's soname bump, 2026-11-02). Build order: hyprutils,
-# aquamarine, hyprtoolkit, hyprland.
+# newer ones gets them from us too. Build order: hyprutils, aquamarine,
+# hyprland.
+#
+# hyprtoolkit rode along from 2026-11-02 to 2026-11-25, because it links
+# aquamarine (0.16's soname bump). It is out of the group now: Arch's 0.7.0
+# moved libhyprtoolkit.so 6 -> 7, and seven distro packages link it
+# (hyprland-guiutils, which hyprland needs, hyprlauncher, hyprpaper,
+# hyprpolkitagent, hyprpwcenter, hyprshutdown, xdg-desktop-portal-hyprland).
+# Carrying it alone kept the whole group "ahead" and broke hyprland's build
+# on guiutils. If aquamarine's soname moves ahead of the distro again, put
+# hyprtoolkit back (and check that its own soname still matches the distro's).
 arch    hyprutils aarch64,x86_64 ahead=hypr
 arch    aquamarine aarch64,x86_64 ahead=hypr
-arch    hyprtoolkit aarch64,x86_64 ahead=hypr
 arch    hyprland aarch64,x86_64 ahead=hypr
