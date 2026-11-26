@@ -35,6 +35,30 @@
 # Only what the boxes cannot get elsewhere: on ARM, not in Armtix, not in
 # omarchy's aarch64 repo, not an arch-independent package from its x86_64 repo;
 # on x86_64, not in Artix and not in omarchy's repo.
+# Omarchy follows Arch's Hyprland the day it lands; Artix and Armtix can be
+# days behind, and new config keys then show as errors (0.57's misc.bell_sound,
+# 2026-10-31). hyprutils and aquamarine ride along so a Hyprland that needs
+# newer ones gets them from us too. Build order: hyprutils, aquamarine,
+# hyprland. They come first: omasnap, omarchy and others here depend on hyprland.
+#
+# hyprtoolkit rode along from 2026-11-02 to 2026-11-25, because it links
+# aquamarine (0.16's soname bump). It is out of the group now: Arch's 0.7.0
+# moved libhyprtoolkit.so 6 -> 7, and seven distro packages link it
+# (hyprland-guiutils, which hyprland needs, hyprlauncher, hyprpaper,
+# hyprpolkitagent, hyprpwcenter, hyprshutdown, xdg-desktop-portal-hyprland).
+# Carrying it alone kept the whole group "ahead" and broke hyprland's build
+# on guiutils. If aquamarine's soname moves ahead of the distro again, put
+# hyprtoolkit back (and check that its own soname still matches the distro's).
+arch    hyprutils aarch64,x86_64 ahead=hypr
+arch    aquamarine aarch64,x86_64 ahead=hypr
+# aarch64: back in the group, held at 0.6.0-3 (Arch's rebuild for aquamarine
+# 0.16, libhyprtoolkit.so=6). Without it Armtix's 0.6.0 wants
+# libaquamarine.so=14, which our aquamarine 0.16 replaces, so hyprland and
+# omasnap could not install their deps (pkgs runs a340/a341, 2026-11-26).
+# Drop this line once Armtix's hypr stack catches up.
+arch    hyprtoolkit aarch64 ahead=hypr,ref=fd308ad88ed0590f574b076515231f3507808e5a
+arch    hyprland aarch64,x86_64 ahead=hypr
+
 omarchy asdcontrol
 omarchy tzupdate
 omarchy omasnap
@@ -70,26 +94,3 @@ local   omarchy-artix aarch64,x86_64
 local   omarchy-themes aarch64,x86_64
 omarchy omarchy-themes-intros aarch64,x86_64
 local   omarchy aarch64,x86_64
-# Omarchy follows Arch's Hyprland the day it lands; Artix and Armtix can be
-# days behind, and new config keys then show as errors (0.57's misc.bell_sound,
-# 2026-10-31). hyprutils and aquamarine ride along so a Hyprland that needs
-# newer ones gets them from us too. Build order: hyprutils, aquamarine,
-# hyprland.
-#
-# hyprtoolkit rode along from 2026-11-02 to 2026-11-25, because it links
-# aquamarine (0.16's soname bump). It is out of the group now: Arch's 0.7.0
-# moved libhyprtoolkit.so 6 -> 7, and seven distro packages link it
-# (hyprland-guiutils, which hyprland needs, hyprlauncher, hyprpaper,
-# hyprpolkitagent, hyprpwcenter, hyprshutdown, xdg-desktop-portal-hyprland).
-# Carrying it alone kept the whole group "ahead" and broke hyprland's build
-# on guiutils. If aquamarine's soname moves ahead of the distro again, put
-# hyprtoolkit back (and check that its own soname still matches the distro's).
-arch    hyprutils aarch64,x86_64 ahead=hypr
-arch    aquamarine aarch64,x86_64 ahead=hypr
-# aarch64: back in the group, held at 0.6.0-3 (Arch's rebuild for aquamarine
-# 0.16, libhyprtoolkit.so=6). Without it Armtix's 0.6.0 wants
-# libaquamarine.so=14, which our aquamarine 0.16 replaces, so hyprland and
-# omasnap could not install their deps (pkgs runs a340/a341, 2026-11-26).
-# Drop this line once Armtix's hypr stack catches up.
-arch    hyprtoolkit aarch64 ahead=hypr,ref=fd308ad88ed0590f574b076515231f3507808e5a
-arch    hyprland aarch64,x86_64 ahead=hypr
