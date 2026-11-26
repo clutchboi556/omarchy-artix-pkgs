@@ -14,6 +14,9 @@
 #                          built against each other. Once the whole group has
 #                          caught up it is skipped and dropped from the repo,
 #                          and boxes go back to the distro's builds.
+#                          ref=COMMIT (arch only) builds Arch's recipe as of
+#                          that packaging commit, to hold a member back from
+#                          a soname bump the distro hasn't made. Say why.
 #
 #   omarchy NAME   pkgbuilds/NAME from omacom/omarchy-pkgs (branch master, latest
 #                  at build time -- omarchy's own recipes, which already declare
@@ -83,4 +86,10 @@ local   omarchy aarch64,x86_64
 # hyprtoolkit back (and check that its own soname still matches the distro's).
 arch    hyprutils aarch64,x86_64 ahead=hypr
 arch    aquamarine aarch64,x86_64 ahead=hypr
+# aarch64: back in the group, held at 0.6.0-3 (Arch's rebuild for aquamarine
+# 0.16, libhyprtoolkit.so=6). Without it Armtix's 0.6.0 wants
+# libaquamarine.so=14, which our aquamarine 0.16 replaces, so hyprland and
+# omasnap could not install their deps (pkgs runs a340/a341, 2026-11-26).
+# Drop this line once Armtix's hypr stack catches up.
+arch    hyprtoolkit aarch64 ahead=hypr,ref=fd308ad88ed0590f574b076515231f3507808e5a
 arch    hyprland aarch64,x86_64 ahead=hypr

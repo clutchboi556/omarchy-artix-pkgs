@@ -176,6 +176,8 @@ while read -r src name arches opts; do
   [[ ,${opts:-}, == *,nocheck,* ]] && NOCHECK[$name]=1
   # ahead=GROUP: carried only while the group is ahead of the distro (step 4)
   [[ ,${opts:-}, =~ ,ahead=([^,]+), ]] && AHEAD[$name]=${BASH_REMATCH[1]}
+  # ref=COMMIT (arch only): that packaging commit instead of the latest
+  ref=""; [[ ,${opts:-}, =~ ,ref=([0-9a-f]+), ]] && ref=${BASH_REMATCH[1]}
   dst=$ROOT/home/builder/build/$name
   case $src in
     omarchy) cp -a "/tmp/omarchy-pkgs/pkgbuilds/$name" "$dst" ;;
@@ -183,7 +185,11 @@ while read -r src name arches opts; do
     # Arch's own recipe, which declares only x86_64: add this arch, exactly as
     # Arch Linux ARM does. Only for recipes reviewed as portable (packages.txt).
     arch)
-      git clone -q --depth 1 "$ARCH_PKGS/$name.git" "$dst"
+      if [[ -n $ref ]]; then
+        git clone -q "$ARCH_PKGS/$name.git" "$dst" && git -C "$dst" checkout -q "$ref"
+      else
+        git clone -q --depth 1 "$ARCH_PKGS/$name.git" "$dst"
+      fi
       echo "$name: archlinux/packaging at $(git -C "$dst" rev-parse --short HEAD)"
       rm -rf "$dst/.git"
       grep -Eq "^arch=\(.*(any|$ARCH)" "$dst/PKGBUILD" \
