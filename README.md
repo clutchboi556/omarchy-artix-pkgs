@@ -11,7 +11,7 @@ boxes need but cannot get anywhere else without the AUR:
   without which the session locks during video.
 - **aarch64**, from Arch Linux's official recipes with `aarch64` added: the
   packages in omarchy's list that Artix carries on x86_64 but Armtix lacks --
-  bluez-tools, kernel-modules-hook, nautilus-python, usage.
+  bluez-tools, kernel-modules-hook, nautilus-python, usage, signal-desktop.
 
 No AUR. `omarchy` entries build Omarchy's own recipes from
 [omacom/omarchy-pkgs](https://github.com/omacom/omarchy-pkgs), which already

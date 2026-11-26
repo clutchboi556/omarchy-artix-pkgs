@@ -188,8 +188,10 @@ while read -r src name arches opts; do
       rm -rf "$dst/.git"
       grep -Eq "^arch=\(.*(any|$ARCH)" "$dst/PKGBUILD" \
         || sed -i -E "s/^arch=\((.*)\)/arch=(\1 '$ARCH')/" "$dst/PKGBUILD"
-      # Artix ships libudev.so in libudev, not systemd-libs.
-      sed -i -E 's/(^|[ (])systemd-libs([ )]|$)/\1libudev\2/g' "$dst/PKGBUILD" ;;
+      # Artix ships libudev.so in libudev, not systemd-libs. Quoted names too
+      # (signal-desktop's 'systemd-libs'): unreplaced, pacman resolves
+      # systemd-libs to artix-archlinux-support, which turns on Arch's repos.
+      sed -i -E "s/(^|[ ('\"])systemd-libs([ )'\"]|\$)/\1libudev\2/g" "$dst/PKGBUILD" ;;
     *) echo "unknown source '$src' for $name" >&2; echo "$name" >>"$OUT/failed"; continue ;;
   esac
   wanted+=("$name")

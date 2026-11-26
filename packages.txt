@@ -52,6 +52,11 @@ arch    nautilus-python
 # nocheck: since 6.12.1 Arch's recipe tests with mise, which Armtix does not
 # carry (2026-10-11). The build itself needs only cargo.
 arch    usage aarch64 nocheck
+# Omarchy's Install > Service > Signal (omarchy-install-service-signal).
+# Arch's recipe already handles aarch64: Electron arm64, plus Signal's own
+# linux-arm64 prebuilds of libsignal, sqlcipher and ringrtc. Built and
+# launched on the uConsole 2026-11-25 (8.36.0, ~5 min).
+arch    signal-desktop
 
 # Omarchy itself, packaged for Artix (see each recipe's header). In this order:
 # omarchy depends on omarchy-artix and omarchy-themes, and makepkg -s installs
