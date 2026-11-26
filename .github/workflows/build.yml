@@ -70,7 +70,20 @@ jobs:
           PKG_SIGNING_KEY: ${{ secrets.PKG_SIGNING_KEY }}
           OMARCHY_ARTIX_TOKEN: ${{ secrets.OMARCHY_ARTIX_TOKEN }}
           FORCE: ${{ inputs.force || 'false' }}
-        run: sudo --preserve-env=PKG_SIGNING_KEY,OMARCHY_ARTIX_TOKEN,FORCE,TAG,ARMTIX_MIRROR ci/build.sh
+        # tee'd for the failure report below; shell: bash adds pipefail
+        shell: bash
+        run: sudo --preserve-env=PKG_SIGNING_KEY,OMARCHY_ARTIX_TOKEN,FORCE,TAG,ARMTIX_MIRROR ci/build.sh 2>&1 | tee build.log
 
       - name: Publish
         run: sudo chown -R "$USER" out && ci/publish.sh
+
+      # For omarchy-artix-autofix (autopin box): see ci/failure-report.sh
+      - name: Failure report
+        if: failure()
+        continue-on-error: true
+        run: |
+          ci/failure-report.sh build.log >"failure-$ARCH.log"
+          gh release view ci-failures >/dev/null 2>&1 || gh release create ci-failures \
+            --title "CI failure reports" --latest=false --prerelease \
+            --notes "failure-<arch>.log from the latest failed build of each arch; read by omarchy-artix-autofix. Not a package repo."
+          gh release upload ci-failures "failure-$ARCH.log" --clobber
