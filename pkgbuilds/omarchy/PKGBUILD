@@ -200,7 +200,10 @@ _etc_ship=(
   etc/sudoers.d/omarchy-theme-browser
   etc/sysctl.d/90-omarchy-arp.conf
   etc/sysctl.d/90-omarchy-file-watchers.conf
+  etc/sysctl.d/99-omarchy-nmi-watchdog.conf
   etc/tmpfiles.d/omarchy-intel-hwp-boost.conf
+  etc/tmpfiles.d/omarchy-power-profiles.conf
+  etc/tmpfiles.d/omarchy-thp.conf
   etc/udev/rules.d/60-omarchy-io-scheduler.rules
   etc/xdg/kitty/kitty.conf
   etc/xkb/rules/evdev
@@ -212,6 +215,8 @@ _etc_ship=(
 #   mkinitcpio.conf.d/*   Artix uses mkinitcpio, so these would apply: they add
 #                         plymouth and btrfs-overlayfs hooks these boxes lack
 #   limine-entry-tool.d/* x86 limine boot stack
+#   intel_lpmd/*          intel-lpmd is in no repo here, and the profile is only
+#                         read through a systemd/ drop-in on intel_lpmd.service
 #   sddm.conf.d/*         10-wayland switches sddm to a Hyprland greeter; the
 #                         theme ships below, so 10-theme is a one-line opt-in
 #   sudoers.d/omarchy-tzupdate  names timedatectl, which is systemd
@@ -225,7 +230,7 @@ _etc_ship=(
 #                         R! of /usr/lib/modules/.old into an `e` rule left to
 #                         systemd-tmpfiles-clean.timer; dinit never runs a
 #                         --clean pass, so the old modules would pile up
-_etc_skip_re='^etc/(cups/|nsswitch\.conf$|security/faillock\.conf$|plymouth/|mkinitcpio\.conf\.d/|limine-entry-tool\.d/|sddm\.conf\.d/|sudoers\.d/omarchy-tzupdate$|sysctl\.d/99-omarchy-sysctl\.conf$|systemd/|sysusers\.d/|tmpfiles\.d/(omarchy-nopasswd-sudo|omarchy-zswap|linux-modules-cleanup)\.conf$)'
+_etc_skip_re='^etc/(cups/|nsswitch\.conf$|security/faillock\.conf$|plymouth/|mkinitcpio\.conf\.d/|limine-entry-tool\.d/|intel_lpmd/|sddm\.conf\.d/|sudoers\.d/omarchy-tzupdate$|sysctl\.d/99-omarchy-sysctl\.conf$|systemd/|sysusers\.d/|tmpfiles\.d/(omarchy-nopasswd-sudo|omarchy-zswap|linux-modules-cleanup)\.conf$)'
 
 package_omarchy-settings() {
   pkgdesc='Omarchy for Artix: default configs, /etc/skel, fonts, icons and themes for the greeter and boot splash'
@@ -242,6 +247,7 @@ package_omarchy-settings() {
     'etc/gnupg/dirmngr.conf'
     'etc/sysctl.d/90-omarchy-arp.conf'
     'etc/sysctl.d/90-omarchy-file-watchers.conf'
+    'etc/sysctl.d/99-omarchy-nmi-watchdog.conf'
     'etc/udev/rules.d/60-omarchy-io-scheduler.rules'
     'etc/modprobe.d/omarchy-usb-autosuspend.conf'
     'etc/NetworkManager/conf.d/omarchy-connectivity.conf'
